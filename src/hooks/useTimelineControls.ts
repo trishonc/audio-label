@@ -22,7 +22,7 @@ export interface UseTimelineControlsReturn {
   handleSeekEnd: () => void;
 }
 
-export const useTimelineControls = ({
+export const useTimelineControls = ({ 
   videoElement,
   audioContextRef,
   audioBufferRef,
@@ -70,31 +70,76 @@ export const useTimelineControls = ({
 
   const startAudioScrubbing = useCallback((time: number) => {
     if (!audioContextRef.current || !audioBufferRef.current) return;
+
+    // Stop and disconnect any existing scrubbing sound source
     if (scrubAudioRef.current) {
-      scrubAudioRef.current.stop();
+      try {
+        scrubAudioRef.current.stop();
+        scrubAudioRef.current.disconnect();
+      } catch (e) {
+        // Errors can occur if the node is already stopped or in an invalid state, which is fine.
+      }
+      scrubAudioRef.current = null;
     }
+
+    // Disconnect the previous gain node if it exists
+    if (scrubGainRef.current) {
+        try {
+            scrubGainRef.current.disconnect();
+        } catch(e) {
+            // Errors can occur if the node is already disconnected, which is fine.
+        }
+        scrubGainRef.current = null;
+    }
+
     try {
       const source = audioContextRef.current.createBufferSource();
       const gainNode = audioContextRef.current.createGain();
+
       source.buffer = audioBufferRef.current;
       source.connect(gainNode);
       gainNode.connect(audioContextRef.current.destination);
       gainNode.gain.value = 0.3;
-      // Play a very short segment for scrubbing feedback
-      const scrubDuration = 0.1; // seconds
+      
+      // Play a shorter segment for scrubbing feedback to reduce perceived repetition
+      const scrubDuration = 0.04; // Changed from 0.1 to 0.04 (40ms)
+      
+      // The start method handles clamping if (time + scrubDuration) exceeds buffer duration
       source.start(0, time, scrubDuration);
+
       scrubAudioRef.current = source;
       scrubGainRef.current = gainNode;
-      // No need for setTimeout to stop, as it plays a short segment
     } catch (error) {
       console.error('Error during audio scrubbing:', error);
+      // Defensive cleanup on error
+      if (scrubAudioRef.current) {
+          try { scrubAudioRef.current.disconnect(); } catch (e) {}
+          scrubAudioRef.current = null;
+      }
+      if (scrubGainRef.current) {
+          try { scrubGainRef.current.disconnect(); } catch (e) {}
+          scrubGainRef.current = null;
+      }
     }
   }, [audioContextRef, audioBufferRef]);
 
   const stopAudioScrubbing = useCallback(() => {
     if (scrubAudioRef.current) {
-      scrubAudioRef.current.stop();
+      try {
+        scrubAudioRef.current.stop();
+        scrubAudioRef.current.disconnect();
+      } catch (e) {
+        // Errors can occur, which is fine.
+      }
       scrubAudioRef.current = null;
+    }
+    if (scrubGainRef.current) {
+      try {
+        scrubGainRef.current.disconnect();
+      } catch (e) {
+        // Errors can occur, which is fine.
+      }
+      scrubGainRef.current = null;
     }
   }, []);
 
