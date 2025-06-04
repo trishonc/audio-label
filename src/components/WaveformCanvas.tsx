@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useCallback, forwardRef, useState } from 'react';
+import type { Label } from '../hooks/useLabels'; // Updated import path
 
 interface WaveformCanvasProps {
   waveformData: number[];
@@ -9,6 +10,7 @@ interface WaveformCanvasProps {
   height?: number;
   zoomLevel: number;
   viewBoxStartTime: number;
+  labels: Label[]; // Added labels prop
 }
 
 // Helper function to clear and draw the background
@@ -77,6 +79,34 @@ const _renderBars = (
   });
 };
 
+// Helper function to draw label markers
+const _renderLabelMarkers = (
+  ctx: CanvasRenderingContext2D,
+  labels: Label[],
+  viewBoxStartTime: number,
+  displayedDuration: number,
+  canvasWidth: number,
+  canvasHeight: number,
+  markerColor: string,
+  dpr: number
+) => {
+  if (displayedDuration === 0 || labels.length === 0) return;
+
+  labels.forEach(label => {
+    if (label.timestamp >= viewBoxStartTime && label.timestamp <= viewBoxStartTime + displayedDuration) {
+      const relativeTimestamp = label.timestamp - viewBoxStartTime;
+      const markerX = (relativeTimestamp / displayedDuration) * canvasWidth;
+      
+      ctx.strokeStyle = markerColor;
+      ctx.lineWidth = 1.5 * dpr; // Make it slightly thicker than 1dpr for visibility
+      ctx.beginPath();
+      ctx.moveTo(markerX, 0);
+      ctx.lineTo(markerX, canvasHeight);
+      ctx.stroke();
+    }
+  });
+};
+
 // Helper function to draw the playhead
 const _renderPlayhead = (
   ctx: CanvasRenderingContext2D,
@@ -111,6 +141,7 @@ const WaveformCanvas = forwardRef<HTMLCanvasElement, WaveformCanvasProps>((
     height = 80,
     zoomLevel,
     viewBoxStartTime,
+    labels, // Destructure labels
   },
   ref
 ) => {
@@ -174,6 +205,18 @@ const WaveformCanvas = forwardRef<HTMLCanvasElement, WaveformCanvasProps>((
       dpr
     );
 
+    // Add call to render label markers (after bars, before playhead)
+    _renderLabelMarkers(
+      ctx,
+      labels,
+      viewBoxStartTime,
+      displayedDuration,
+      canvasWidth,
+      canvasHeight,
+      '#22c55e', // Green color for markers (Tailwind green-500)
+      dpr
+    );
+
     _renderPlayhead(
       ctx,
       currentTime,
@@ -192,6 +235,7 @@ const WaveformCanvas = forwardRef<HTMLCanvasElement, WaveformCanvasProps>((
     ref, 
     zoomLevel, 
     viewBoxStartTime, 
+    labels, // Add labels to dependency array
     themeColors
   ]);
 

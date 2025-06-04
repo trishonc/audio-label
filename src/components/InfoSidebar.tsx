@@ -1,14 +1,24 @@
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { XCircle } from "lucide-react";
+import type { Label } from "../hooks/useLabels";
+import { formatTimestamp } from "@/lib/utils";
 
-export function InfoSidebar() {
-  // Placeholder data - in a real app, this would come from props or state
-  const currentClipName = "MyBoxingSession_01.mp4"; // Placeholder for actual clip name
-  const currentClipLabels = [
-    { id: 1, timestamp: "00:00:12.345" },
-    { id: 2, timestamp: "00:00:15.678" },
-    { id: 3, timestamp: "00:00:22.123" },
-  ];
+interface InfoSidebarProps {
+  currentClipName: string;
+  labels: Label[];
+  onAddLabel: () => void;
+  onDeleteLabel: (id: string) => void;
+  onNavigateToTimestamp: (timestamp: number) => void;
+}
+
+export function InfoSidebar({ 
+  currentClipName,
+  labels,
+  onAddLabel,
+  onDeleteLabel,
+  onNavigateToTimestamp
+}: InfoSidebarProps) {
   const totalLabelsAllClips = 15;
 
   return (
@@ -17,7 +27,7 @@ export function InfoSidebar() {
 
       {/* Actions Section */}
       <div className="flex flex-col gap-2">
-        <Button className="w-full justify-between">
+        <Button className="w-full justify-between" onClick={onAddLabel}>
           <span>Label</span>
           <span className="text-xs text-muted-foreground">(L)</span>
         </Button>
@@ -26,17 +36,31 @@ export function InfoSidebar() {
       {/* Current Clip Info Section */}
       <div className="flex flex-col gap-2 border-t pt-4 mt-2">
         <h3 className="text-lg font-medium truncate" title={currentClipName}>{currentClipName}</h3>
-        <div className="flex justify-between text-sm">
-          <span>Labels:</span>
-          <span>{currentClipLabels.length}</span>
+        <div className="flex justify-between text-sm items-center">
+          <span>Labels ({labels.length})</span>
         </div>
-        <h4 className="text-md font-medium mt-2 mb-1">Timestamps:</h4>
         <ScrollArea className="h-48 rounded-md border p-2 bg-background">
-          {currentClipLabels.length > 0 ? (
+          {labels.length > 0 ? (
             <ul className="space-y-1">
-              {currentClipLabels.map((label) => (
-                <li key={label.id} className="text-sm p-1 hover:bg-accent rounded-sm">
-                  {label.timestamp}
+              {labels.map((label) => (
+                <li 
+                  key={label.id} 
+                  className="flex items-center justify-between text-sm p-1.5 hover:bg-accent rounded-sm cursor-pointer group"
+                  onClick={() => onNavigateToTimestamp(label.timestamp)}
+                >
+                  <span>{formatTimestamp(label.timestamp)}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteLabel(label.id);
+                    }}
+                    title="Remove label"
+                  >
+                    <XCircle className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                  </Button>
                 </li>
               ))}
             </ul>

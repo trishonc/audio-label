@@ -42,4 +42,18 @@ export const clampViewBoxStartTime = (
   }
   // Otherwise, clamp between 0 and the maximum possible start time (totalDuration - displayedDuration).
   return Math.max(0, Math.min(newViewBoxStartTime, totalDuration - displayedDuration));
-}; 
+};
+
+export function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+export function formatTimestamp(seconds: number): string {
+  if (isNaN(seconds) || seconds < 0) {
+    return "00:00.000";
+  }
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  const millis = Math.floor((seconds - mins * 60 - secs) * 1000);
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(millis).padStart(3, '0')}`;
+} 

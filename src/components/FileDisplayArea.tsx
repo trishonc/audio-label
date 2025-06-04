@@ -3,25 +3,33 @@ import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import Player from '@/components/Player'
 import Timeline from '@/components/Timeline'
+import type { Label } from "../hooks/useLabels";
 
 interface FileDisplayAreaProps {
   files: File[];
   activeIndex: number;
   onIndexChange: (index: number) => void;
+  onVideoElementChange?: (element: HTMLVideoElement | null) => void;
+  labels: Label[];
+  panToTimestampTarget: number | null;
 }
 
-const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({ files, activeIndex, onIndexChange }) => {
+const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({ files, activeIndex, onIndexChange, onVideoElementChange, labels, panToTimestampTarget }) => {
   const [currentUrl, setCurrentUrl] = useState<string | null>(null);
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
 
   const videoRef = useCallback((element: HTMLVideoElement | null) => {
     setVideoElement(element);
-  }, []);
+    if (onVideoElementChange) {
+      onVideoElementChange(element);
+    }
+  }, [onVideoElementChange]);
 
   useEffect(() => {
     const activeFile = files[activeIndex];
     if (!activeFile) {
       setCurrentUrl(null);
+      if (videoRef) videoRef(null);
       return;
     }
 
@@ -29,7 +37,7 @@ const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({ files, activeIndex, o
     setCurrentUrl(objectUrl);
 
     return () => URL.revokeObjectURL(objectUrl);
-  }, [activeIndex, files]);
+  }, [activeIndex, files, videoRef]);
 
   const handlePrevious = () => {
     if (activeIndex > 0) {
@@ -92,6 +100,8 @@ const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({ files, activeIndex, o
           <Timeline 
             url={currentUrl} 
             videoElement={videoElement}
+            labels={labels}
+            panToTimestampTarget={panToTimestampTarget}
           />
         </div>
       </div>

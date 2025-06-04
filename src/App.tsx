@@ -4,25 +4,50 @@ import { Header } from "@/components/Header"
 import UploadArea from '@/components/UploadArea'
 import FileDisplayArea from '@/components/FileDisplayArea'
 import { InfoSidebar } from "@/components/InfoSidebar"
+import { useLabels } from '@/hooks/useLabels'; // Import the hook
 
 function App() {
   const [files, setFiles] = useState<File[]>([])
   const [activeIndex, setActiveIndex] = useState<number>(0)
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  const [panToTimestampTarget, setPanToTimestampTarget] = useState<number | null>(null);
+
+  const currentFile = files[activeIndex];
+
+  const handleRequestTimelinePan = (timestamp: number) => {
+    setPanToTimestampTarget(timestamp);
+    // Optionally, reset panToTimestampTarget to null after a short delay or after Timeline processes it,
+    // but Timeline will use a ref to only process new values, so direct reset might not be strictly needed here.
+    // For now, let Timeline manage not re-processing the same target.
+  };
+
+  // Use the custom hook for labels
+  const {
+    labels,
+    addLabel,
+    deleteLabel,
+    navigateToTimestamp,
+  } = useLabels({ 
+    videoElement, 
+    currentFileIdentifier: currentFile?.name, 
+    requestTimelinePan: handleRequestTimelinePan 
+  });
 
   const handleFilesUploaded = (newFiles: File[]) => {
     setFiles(prevFiles => {
       const updatedFiles = [...prevFiles, ...newFiles]
-      // Ensure no duplicate file names which can mess with navigation
       const uniqueFiles = Array.from(new Map(updatedFiles.map(f => [f.name, f])).values());
       if (uniqueFiles.length > prevFiles.length && uniqueFiles.length > 0) {
-        setActiveIndex(prevFiles.length) // Set active index to the first of the *newly* uploaded files
+        setActiveIndex(prevFiles.length)
+        setPanToTimestampTarget(null); // Reset pan target when new files are uploaded
       }
       return uniqueFiles;
     })
   }
 
   const handleIndexChange = (index: number) => {
-    setActiveIndex(index)
+    setActiveIndex(index);
+    setPanToTimestampTarget(null); // Reset pan target when active file changes
   }
 
   return (
@@ -37,11 +62,20 @@ function App() {
                 files={files}
                 activeIndex={activeIndex}
                 onIndexChange={handleIndexChange}
+                onVideoElementChange={setVideoElement}
+                labels={labels}
+                panToTimestampTarget={panToTimestampTarget}
               />
             )}
           </div>
           <div className="w-1/3 min-h-0">
-            <InfoSidebar />
+            <InfoSidebar
+              currentClipName={currentFile ? currentFile.name : "No file selected"}
+              labels={labels}
+              onAddLabel={addLabel}
+              onDeleteLabel={deleteLabel}
+              onNavigateToTimestamp={navigateToTimestamp}
+            />
           </div>
         </main>
       </div>
