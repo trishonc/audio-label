@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
-import { Play, Pause } from "lucide-react"
+import { Play, Pause, Minus, Plus } from "lucide-react"
 import { useAudioProcessing } from '@/hooks/useAudioProcessing';
 import { useTimelineControls } from '@/hooks/useTimelineControls';
 import WaveformCanvas from '@/components/WaveformCanvas';
 import CustomScrollbar from '@/components/CustomScrollbar';
+import { clampViewBoxStartTime } from '@/lib/utils';
+import { useInteractionDebouncer } from '@/hooks/useInteractionDebouncer';
 
 interface TimelineProps {
   url: string | null
@@ -16,17 +18,21 @@ const MIN_ZOOM = 1;
 const MAX_ZOOM = 10;
 const MOUSE_WHEEL_PAN_SENSITIVITY_FACTOR = 0.60;
 const USER_INTERACTION_DEBOUNCE_TIME = 1000; // 1 second
+const PLAYBACK_PAN_BUFFER_RATIO = 0.2; // When playing, pan if currentTime is within 20% of view edge
+const PLAYBACK_REPOSITION_FACTOR_LEFT = 0.3; // When auto-panning left, position currentTime 30% from new left edge
+const PLAYBACK_REPOSITION_FACTOR_RIGHT = 0.7; // When auto-panning right, position currentTime 70% from new left edge (30% from right)
+const VIEWBOX_UPDATE_THRESHOLD = 0.001; // Minimum change to trigger setViewBoxStartTime during playback auto-scroll
 
 const Timeline: React.FC<TimelineProps> = ({ url, videoElement }) => {
   const canvasForwardRef = useRef<HTMLCanvasElement>(null)
   const animationFrameRef = useRef<number | undefined>(undefined)
   const waveformContainerRef = useRef<HTMLDivElement>(null);
-  const interactionTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Added for interaction debounce
 
   const [currentTime, setCurrentTime] = useState(0)
   const [zoomLevel, setZoomLevel] = useState(MIN_ZOOM)
   const [viewBoxStartTime, setViewBoxStartTime] = useState(0)
-  const [userInteractingView, setUserInteractingView] = useState(false); // Added state for user interaction
+  const [isUserInteracting, pingUserInteraction] = useInteractionDebouncer(USER_INTERACTION_DEBOUNCE_TIME);
+  const [prevUrl, setPrevUrl] = useState<string | null>(url);
 
   const {
     isLoading: isAudioLoading,
@@ -53,61 +59,62 @@ const Timeline: React.FC<TimelineProps> = ({ url, videoElement }) => {
     duration,
     setVideoCurrentTime: setCurrentTime,
     canvasRef: canvasForwardRef,
-    zoomLevel,
     viewBoxStartTime,
     setViewBoxStartTime,
     displayedDuration,
   });
 
-  useEffect(() => {
+  if (url !== prevUrl) {
+    setPrevUrl(url);
+
     if (url) {
-      processAudioData(url)
-      setZoomLevel(MIN_ZOOM)
-      setViewBoxStartTime(0)
+      processAudioData(url);
+      setZoomLevel(MIN_ZOOM);
+      setViewBoxStartTime(0);
     } else {
-      setWaveformData([])
-      setDuration(0)
-      setCurrentTime(0)
-      setZoomLevel(MIN_ZOOM)
-      setViewBoxStartTime(0)
+      setWaveformData([]);
+      setDuration(0);
+      setCurrentTime(0);
+      setZoomLevel(MIN_ZOOM);
+      setViewBoxStartTime(0);
     }
-  }, [url, processAudioData, setWaveformData, setDuration, setCurrentTime])
+  }
 
   useEffect(() => {
     if (duration === 0 || zoomLevel === MIN_ZOOM) {
         if (viewBoxStartTime !== 0) setViewBoxStartTime(0);
         return;
     }
-    if (!isPlaying || isDragging || userInteractingView) {
+    if (!isPlaying || isDragging || isUserInteracting) {
         return;
     }
 
     const newDisplayedDuration = displayedDuration;
     let newTargetViewBoxStartTime = viewBoxStartTime;
 
-    const buffer = newDisplayedDuration * 0.2;
+    const buffer = newDisplayedDuration * PLAYBACK_PAN_BUFFER_RATIO;
 
     let shouldAdjust = false;
     if (currentTime < viewBoxStartTime + buffer && currentTime > 0) {
-        newTargetViewBoxStartTime = currentTime - newDisplayedDuration * 0.3;
+        newTargetViewBoxStartTime = currentTime - newDisplayedDuration * PLAYBACK_REPOSITION_FACTOR_LEFT;
         shouldAdjust = true;
     } else if (currentTime > viewBoxStartTime + newDisplayedDuration - buffer) {
-        newTargetViewBoxStartTime = currentTime - newDisplayedDuration * 0.7;
+        newTargetViewBoxStartTime = currentTime - newDisplayedDuration * PLAYBACK_REPOSITION_FACTOR_RIGHT;
         shouldAdjust = true;
     }
 
     if (shouldAdjust) {
-        newTargetViewBoxStartTime = Math.max(0, Math.min(newTargetViewBoxStartTime, duration - newDisplayedDuration));
+        newTargetViewBoxStartTime = clampViewBoxStartTime(
+            newTargetViewBoxStartTime,
+            duration,
+            newDisplayedDuration
+        );
         
-        if (duration - newDisplayedDuration <= 0) {
-            newTargetViewBoxStartTime = 0;
-        }
-
-        if (Math.abs(newTargetViewBoxStartTime - viewBoxStartTime) > 0.001) {
+        if (Math.abs(newTargetViewBoxStartTime - viewBoxStartTime) > VIEWBOX_UPDATE_THRESHOLD) {
             setViewBoxStartTime(newTargetViewBoxStartTime);
         }
     }
-  }, [currentTime, duration, zoomLevel, viewBoxStartTime, isPlaying, isDragging, displayedDuration, setViewBoxStartTime, userInteractingView]);
+  }, [currentTime, duration, zoomLevel, viewBoxStartTime, isPlaying, isDragging, displayedDuration, setViewBoxStartTime, isUserInteracting]);
 
   useEffect(() => {
     if (!videoElement) return
@@ -135,9 +142,9 @@ const Timeline: React.FC<TimelineProps> = ({ url, videoElement }) => {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
-  const handleCanvasSeekStart = useCallback((time: number, clientX: number) => {
+  const handleCanvasSeekStart = useCallback((time: number) => {
     if (videoElement) {
-      onCanvasSeekStart(time, clientX)
+      onCanvasSeekStart(time);
     }
   }, [videoElement, onCanvasSeekStart])
 
@@ -153,8 +160,13 @@ const Timeline: React.FC<TimelineProps> = ({ url, videoElement }) => {
     const centerTimeOfView = viewBoxStartTime + displayedDuration / 2;
     const newDisplayedDurationZoom = duration / newZoom;
     let newViewBoxStartTimeZoom = centerTimeOfView - newDisplayedDurationZoom / 2;
-    newViewBoxStartTimeZoom = Math.max(0, Math.min(newViewBoxStartTimeZoom, duration - newDisplayedDurationZoom));
-    if (duration - newDisplayedDurationZoom <= 0) newViewBoxStartTimeZoom = 0;
+    
+    newViewBoxStartTimeZoom = clampViewBoxStartTime(
+        newViewBoxStartTimeZoom,
+        duration,
+        newDisplayedDurationZoom
+    );
+
     setZoomLevel(newZoom);
     setViewBoxStartTime(newViewBoxStartTimeZoom);
     if (newZoom === MIN_ZOOM && viewBoxStartTime !== 0) setViewBoxStartTime(0);
@@ -164,11 +176,7 @@ const Timeline: React.FC<TimelineProps> = ({ url, videoElement }) => {
     const canvas = canvasForwardRef.current;
     if (!canvas || duration === 0 || isDragging) return;
 
-    // Clear any existing timeout and mark as interacting
-    if (interactionTimeoutRef.current) {
-      clearTimeout(interactionTimeoutRef.current);
-    }
-    setUserInteractingView(true);
+    pingUserInteraction();
 
     const { deltaX, deltaY, metaKey, shiftKey } = e;
     const absDeltaX = Math.abs(deltaX);
@@ -207,37 +215,23 @@ const Timeline: React.FC<TimelineProps> = ({ url, videoElement }) => {
 
     // Apply pan changes if needed
     if (intentToPan) {
-        // Clamp calculatedViewBoxStartTime
-        calculatedViewBoxStartTime = Math.max(0, Math.min(calculatedViewBoxStartTime, duration - displayedDuration));
-        if (duration - displayedDuration <= 0) {
-            calculatedViewBoxStartTime = 0;
-        }
+        calculatedViewBoxStartTime = clampViewBoxStartTime(
+            calculatedViewBoxStartTime,
+            duration,
+            displayedDuration
+        );
         
         if (Math.abs(calculatedViewBoxStartTime - viewBoxStartTime) > 0.00001) {
             setViewBoxStartTime(calculatedViewBoxStartTime);
         }
     }
+  }, [zoomLevel, viewBoxStartTime, duration, displayedDuration, isDragging, canvasForwardRef, setViewBoxStartTime, pingUserInteraction]);
 
-    // Set a timeout to mark interaction as ended
-    interactionTimeoutRef.current = setTimeout(() => {
-      setUserInteractingView(false);
-    }, USER_INTERACTION_DEBOUNCE_TIME);
-  }, [zoomLevel, viewBoxStartTime, duration, displayedDuration, isDragging, canvasForwardRef, setViewBoxStartTime]);
-
-  const handleScrollbarScrub = (newStartTime: number) => {
-    // Clear any existing timeout and mark as interacting
-    if (interactionTimeoutRef.current) {
-      clearTimeout(interactionTimeoutRef.current);
-    }
-    setUserInteractingView(true);
+  const handleScrollbarScrub = useCallback((newStartTime: number) => {
+    pingUserInteraction();
 
     setViewBoxStartTime(newStartTime);
-
-    // Set a timeout to mark interaction as ended
-    interactionTimeoutRef.current = setTimeout(() => {
-      setUserInteractingView(false);
-    }, USER_INTERACTION_DEBOUNCE_TIME);
-  };
+  }, [setViewBoxStartTime, pingUserInteraction]);
 
   return (
     <div className="w-full space-y-1">
@@ -278,7 +272,7 @@ const Timeline: React.FC<TimelineProps> = ({ url, videoElement }) => {
               className="h-7 w-7 p-0"
               title="Zoom Out"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              <Minus className="h-3.5 w-3.5" />
             </Button>
           <Slider
             min={MIN_ZOOM}
@@ -298,7 +292,7 @@ const Timeline: React.FC<TimelineProps> = ({ url, videoElement }) => {
               className="h-7 w-7 p-0"
               title="Zoom In"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              <Plus className="h-3.5 w-3.5" />
             </Button>
           <Button
             variant="outline"

@@ -1,4 +1,13 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { clampViewBoxStartTime } from '@/lib/utils';
+
+// Constants for timeline controls
+const SCRUB_AUDIO_GAIN = 0.3;
+const SCRUB_AUDIO_DURATION = 0.04; // 40ms scrub duration
+const PAN_EDGE_BUFFER_RATIO = 0.1; // 10% buffer from each edge for auto-pan
+const PAN_REPOSITION_FACTOR_LEFT = 0.2; // When panning left, position playhead 20% from the new left edge
+const PAN_REPOSITION_FACTOR_RIGHT = 0.8; // When panning right, position playhead 80% from the new left edge (20% from right)
+const MIN_VIEWBOX_CHANGE_THRESHOLD = 0.001; // Minimum change to trigger setViewBoxStartTime
 
 interface UseTimelineControlsProps {
   videoElement: HTMLVideoElement | null;
@@ -7,7 +16,6 @@ interface UseTimelineControlsProps {
   duration: number; // Total duration
   setVideoCurrentTime: (time: number) => void;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
-  zoomLevel: number;
   viewBoxStartTime: number;
   setViewBoxStartTime: (time: number) => void;
   displayedDuration: number;
@@ -17,7 +25,7 @@ export interface UseTimelineControlsReturn {
   isDragging: boolean;
   isPlaying: boolean;
   togglePlayPause: () => void;
-  handleSeekStart: (startTime: number, initialMouseX: number) => void;
+  handleSeekStart: (startTime: number) => void;
   handleSeekMove: (currentMouseX: number) => void;
   handleSeekEnd: () => void;
 }
@@ -29,7 +37,6 @@ export const useTimelineControls = ({
   duration, // Total duration
   setVideoCurrentTime,
   canvasRef,
-  zoomLevel,
   viewBoxStartTime,
   setViewBoxStartTime,
   displayedDuration,
@@ -38,10 +45,6 @@ export const useTimelineControls = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const scrubAudioRef = useRef<AudioBufferSourceNode | null>(null);
   const scrubGainRef = useRef<GainNode | null>(null);
-  const dragStartTimeRef = useRef<number>(0); 
-  const dragStartMouseXRef = useRef<number>(0);
-  // Store the viewBoxStartTime at the moment the drag started
-  const dragStartViewBoxTimeRef = useRef<number>(0); 
 
   const togglePlayPause = useCallback(() => {
     if (!videoElement) return;
@@ -99,10 +102,10 @@ export const useTimelineControls = ({
       source.buffer = audioBufferRef.current;
       source.connect(gainNode);
       gainNode.connect(audioContextRef.current.destination);
-      gainNode.gain.value = 0.3;
+      gainNode.gain.value = SCRUB_AUDIO_GAIN;
       
       // Play a shorter segment for scrubbing feedback to reduce perceived repetition
-      const scrubDuration = 0.04; // Changed from 0.1 to 0.04 (40ms)
+      const scrubDuration = SCRUB_AUDIO_DURATION; 
       
       // The start method handles clamping if (time + scrubDuration) exceeds buffer duration
       source.start(0, time, scrubDuration);
@@ -143,77 +146,80 @@ export const useTimelineControls = ({
     }
   }, []);
 
-  const handleSeekStart = useCallback((time: number, initialMouseX: number) => {
+  const handleSeekStart = useCallback((time: number) => {
     if (!videoElement || duration === 0) return;
     setIsDragging(true);
     videoElement.pause(); // Pause video during drag for smoother seeking
     videoElement.currentTime = time;
     setVideoCurrentTime(time);
     startAudioScrubbing(time);
-    dragStartTimeRef.current = time;
-    dragStartMouseXRef.current = initialMouseX;
-    dragStartViewBoxTimeRef.current = viewBoxStartTime; // Store viewBoxStartTime at drag start
-  }, [videoElement, duration, setVideoCurrentTime, startAudioScrubbing, viewBoxStartTime]);
+  }, [videoElement, duration, setVideoCurrentTime, startAudioScrubbing]);
 
   const handleSeekMove = useCallback((currentMouseX: number) => {
     if (!isDragging || !canvasRef.current || !videoElement || duration === 0) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
-    
-    // Calculate pixelsPerSecond based on the *currently visible* duration in the canvas
-    const pixelsPerSecondInView = rect.width / displayedDuration;
-    const mouseDeltaX = currentMouseX - dragStartMouseXRef.current;
-    const timeDelta = mouseDeltaX / pixelsPerSecondInView;
-    
-    // The new time is calculated relative to the time when the drag started.
-    // This is crucial for zoomed views, as the `viewBoxStartTime` might change if `Timeline.tsx` tries to auto-scroll.
-    // However, for drag purposes, we want the seeking to be relative to the initial state of the drag.
-    let newTime = dragStartTimeRef.current + timeDelta;
-    
-    newTime = Math.max(0, Math.min(duration, newTime)); // Clamp to total duration
-    
-    // Auto-pan logic when dragging playhead near edges
-    const edgeBuffer = displayedDuration * 0.1; // 10% buffer from each edge
-    let newViewBoxStartTime = viewBoxStartTime;
-    let shouldPan = false;
+    const mouseXRelativeToCanvas = currentMouseX - rect.left;
+    const progressInView = mouseXRelativeToCanvas / rect.width; // Ratio of mouse position within the canvas width
 
-    if (newTime < viewBoxStartTime + edgeBuffer) { // Playhead approaching left edge
-      newViewBoxStartTime = newTime - displayedDuration * 0.2; // Position playhead 20% from left
-      shouldPan = true;
-    } else if (newTime > viewBoxStartTime + displayedDuration - edgeBuffer) { // Playhead approaching right edge
-      newViewBoxStartTime = newTime - displayedDuration * 0.8; // Position playhead 80% from left (20% from right)
-      shouldPan = true;
+    // Default reference for viewBoxStartTime is the current one for calculating the playhead position
+    let referenceViewBoxStartTime = viewBoxStartTime;
+
+    // Calculate a preliminary newTime based on the current viewBoxStartTime.
+    // This is used to check if panning is needed.
+    let timeBasedOnCurrentView = viewBoxStartTime + progressInView * displayedDuration;
+    timeBasedOnCurrentView = Math.max(0, Math.min(duration, timeBasedOnCurrentView)); // Clamp
+
+    // Auto-pan logic
+    const edgeBuffer = displayedDuration * PAN_EDGE_BUFFER_RATIO;
+    let potentialNewViewBoxStartTime = viewBoxStartTime;
+    let panConditionMet = false;
+
+    // Check for panning left: playhead approaching left edge AND not already at the very beginning of the timeline view
+    if (timeBasedOnCurrentView < viewBoxStartTime + edgeBuffer && viewBoxStartTime > 0) {
+      potentialNewViewBoxStartTime = timeBasedOnCurrentView - displayedDuration * PAN_REPOSITION_FACTOR_LEFT;
+      panConditionMet = true;
+    // Check for panning right: playhead approaching right edge AND not already at the very end of the timeline view
+    } else if (timeBasedOnCurrentView > viewBoxStartTime + displayedDuration - edgeBuffer && (viewBoxStartTime + displayedDuration) < duration) {
+      potentialNewViewBoxStartTime = timeBasedOnCurrentView - displayedDuration * PAN_REPOSITION_FACTOR_RIGHT;
+      panConditionMet = true;
     }
 
-    if (shouldPan) {
-      newViewBoxStartTime = Math.max(0, Math.min(newViewBoxStartTime, duration - displayedDuration));
-      if (duration - displayedDuration <= 0) {
-        newViewBoxStartTime = 0;
-      }
-      if (Math.abs(newViewBoxStartTime - viewBoxStartTime) > 0.001) {
-        setViewBoxStartTime(newViewBoxStartTime);
+    if (panConditionMet) {
+      // Clamp the potential new viewBoxStartTime to valid range
+      potentialNewViewBoxStartTime = clampViewBoxStartTime(
+        potentialNewViewBoxStartTime,
+        duration,
+        displayedDuration
+      );
+
+      // If a pan is actually going to happen (i.e., the change is significant enough)
+      if (Math.abs(potentialNewViewBoxStartTime - viewBoxStartTime) > MIN_VIEWBOX_CHANGE_THRESHOLD) {
+        setViewBoxStartTime(potentialNewViewBoxStartTime);
+        // For THIS mouse event, the playhead's target time should be calculated relative to where the view WILL BE.
+        referenceViewBoxStartTime = potentialNewViewBoxStartTime;
       }
     }
-    
-    videoElement.currentTime = newTime;
-    setVideoCurrentTime(newTime);
-    startAudioScrubbing(newTime);
+
+    // Calculate the final newTime for the video/audio using the determined referenceViewBoxStartTime.
+    // This ensures the playhead targets the time under the mouse, considering the pan that was just decided (if any).
+    const finalNewTime = referenceViewBoxStartTime + progressInView * displayedDuration;
+    const clampedFinalNewTime = Math.max(0, Math.min(duration, finalNewTime));
+
+    videoElement.currentTime = clampedFinalNewTime;
+    setVideoCurrentTime(clampedFinalNewTime);
+    startAudioScrubbing(clampedFinalNewTime);
   }, [
     isDragging, 
     canvasRef, 
     videoElement, 
     duration, 
-    zoomLevel, 
     setVideoCurrentTime, 
     startAudioScrubbing, 
-    dragStartMouseXRef, 
-    dragStartTimeRef,
     viewBoxStartTime,
     setViewBoxStartTime,
     displayedDuration
   ]);
-  // Note: We use dragStartTimeRef and dragStartMouseXRef to make seeking relative to the drag start point.
-  // dragStartViewBoxTimeRef.current could be used if we needed to adjust based on the viewBox at drag initiation, but for now, direct time calculation is cleaner.
 
   const handleSeekEnd = useCallback(() => {
     if (!videoElement || !isDragging) return;

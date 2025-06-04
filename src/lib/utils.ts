@@ -23,3 +23,23 @@ export const truncateFileName = (fileName: string, maxLength: number = 20): stri
   
   return name.substring(0, availableLength) + '...' + extension;
 };
+
+/**
+ * Clamps the viewBoxStartTime to ensure it stays within valid bounds.
+ * @param newViewBoxStartTime The proposed new start time for the viewbox.
+ * @param totalDuration The total duration of the media.
+ * @param displayedDuration The duration currently visible in the viewbox.
+ * @returns The clamped viewBoxStartTime.
+ */
+export const clampViewBoxStartTime = (
+  newViewBoxStartTime: number,
+  totalDuration: number,
+  displayedDuration: number
+): number => {
+  // If the entire duration (or more) is displayed, viewBoxStartTime must be 0.
+  if (displayedDuration >= totalDuration) {
+    return 0;
+  }
+  // Otherwise, clamp between 0 and the maximum possible start time (totalDuration - displayedDuration).
+  return Math.max(0, Math.min(newViewBoxStartTime, totalDuration - displayedDuration));
+}; 
