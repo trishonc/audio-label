@@ -24,30 +24,27 @@ export const truncateFileName = (fileName: string, maxLength: number = 20): stri
   return name.substring(0, availableLength) + '...' + extension;
 };
 
+export function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
 /**
  * Clamps the viewBoxStartTime to ensure it stays within valid bounds.
- * @param newViewBoxStartTime The proposed new start time for the viewbox.
- * @param totalDuration The total duration of the media.
- * @param displayedDuration The duration currently visible in the viewbox.
- * @returns The clamped viewBoxStartTime.
+ * Uses the generic clamp function.
  */
 export const clampViewBoxStartTime = (
   newViewBoxStartTime: number,
   totalDuration: number,
   displayedDuration: number
 ): number => {
-  // If the entire duration (or more) is displayed, viewBoxStartTime must be 0.
-  if (displayedDuration >= totalDuration) {
+  if (displayedDuration >= totalDuration || totalDuration === 0) {
     return 0;
   }
-  // Otherwise, clamp between 0 and the maximum possible start time (totalDuration - displayedDuration).
-  return Math.max(0, Math.min(newViewBoxStartTime, totalDuration - displayedDuration));
+  // Clamp between 0 and the maximum possible start time (totalDuration - displayedDuration).
+  return clamp(newViewBoxStartTime, 0, totalDuration - displayedDuration);
 };
 
-export function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
-}
-
+// ... existing code ...
 export function formatTimestamp(seconds: number): string {
   if (isNaN(seconds) || seconds < 0) {
     return "00:00.000";
@@ -56,4 +53,25 @@ export function formatTimestamp(seconds: number): string {
   const secs = Math.floor(seconds % 60);
   const millis = Math.floor((seconds - mins * 60 - secs) * 1000);
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(millis).padStart(3, '0')}`;
-} 
+}
+
+export const formatTime = (seconds: number, zoomLevel: number = 1, displayedDuration: number = Infinity) => {
+  const showMilliseconds = zoomLevel > 5 || displayedDuration < 15;
+
+  if (isNaN(seconds) || seconds < 0) {
+    return showMilliseconds ? "00:00.00" : "00:00";
+  }
+
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  
+  const minutesString = String(mins).padStart(2, '0');
+  const secondsString = String(secs).padStart(2, '0');
+
+  if (showMilliseconds) { 
+      const millis = Math.floor((seconds - (mins * 60) - secs) * 100);
+      const millisString = String(millis).padStart(2, '0');
+      return `${minutesString}:${secondsString}.${millisString}`;
+  }
+  return `${minutesString}:${secondsString}`;
+};

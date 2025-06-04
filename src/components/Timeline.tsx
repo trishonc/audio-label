@@ -4,9 +4,11 @@ import { Slider } from "@/components/ui/slider"
 import { Play, Pause, Minus, Plus } from "lucide-react"
 import { useAudioProcessing } from '@/hooks/useAudioProcessing';
 import { useTimelineControls } from '@/hooks/useTimelineControls';
+import { useTimelineZoom, MIN_ZOOM } from '@/hooks/useTimelineZoom';
+import { useTimelinePan } from '@/hooks/useTimelinePan';
 import WaveformCanvas from '@/components/WaveformCanvas';
 import CustomScrollbar from '@/components/CustomScrollbar';
-import { clampViewBoxStartTime } from '@/lib/utils';
+import { formatTime } from '@/lib/utils';
 import { useInteractionDebouncer } from '@/hooks/useInteractionDebouncer';
 import type { Label } from '@/hooks/useLabels';
 
@@ -17,26 +19,24 @@ interface TimelineProps {
   panToTimestampTarget: number | null;
 }
 
-const MIN_ZOOM = 1;
-const MAX_ZOOM = 10;
-const MOUSE_WHEEL_PAN_SENSITIVITY_FACTOR = 0.60;
 const USER_INTERACTION_DEBOUNCE_TIME = 1000; // 1 second
-const PLAYBACK_PAN_BUFFER_RATIO = 0.2;
-const PLAYBACK_REPOSITION_FACTOR_LEFT = 0.3;
-const PLAYBACK_REPOSITION_FACTOR_RIGHT = 0.7;
-const VIEWBOX_UPDATE_THRESHOLD = 0.001;
 
 const Timeline: React.FC<TimelineProps> = ({ url, videoElement, labels, panToTimestampTarget }) => {
-  const canvasForwardRef = useRef<HTMLCanvasElement>(null);
+  const canvasForwardRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | undefined>(undefined);
   const waveformContainerRef = useRef<HTMLDivElement>(null);
-  const processedPanTargetRef = useRef<number | null>(null);
 
   const [currentTime, setCurrentTime] = useState(0);
-  const [zoomLevel, setZoomLevel] = useState(MIN_ZOOM);
-  const [viewBoxStartTime, setViewBoxStartTime] = useState(0);
-  const [isUserInteracting, pingUserInteraction] = useInteractionDebouncer(USER_INTERACTION_DEBOUNCE_TIME);
   const [prevUrl, setPrevUrl] = useState<string | null>(url);
+
+  const [isPlayingTimeline, setIsPlayingTimeline] = useState(false);
+  const [isDraggingTimeline, setIsDraggingTimeline] = useState(false);
+
+  const [isUserInteractingDebounced, pingUserInteraction] = useInteractionDebouncer(USER_INTERACTION_DEBOUNCE_TIME);
+
+  // State for zoom and pan, managed by Timeline component
+  const [zoomLevel, setZoomLevel] = useState<number>(MIN_ZOOM);
+  const [viewBoxStartTime, setViewBoxStartTime] = useState<number>(0);
 
   const {
     isLoading: isAudioLoading,
@@ -46,16 +46,46 @@ const Timeline: React.FC<TimelineProps> = ({ url, videoElement, labels, panToTim
     audioBufferRef,
     processAudioData,
     setWaveformData,
-    setDuration,
+    setDuration: setAudioDuration,
   } = useAudioProcessing();
 
-  const displayedDuration = duration / zoomLevel;
+  // Calculate displayedDuration based on current duration and zoomLevel
+  const actualDisplayedDuration = duration > 0 && zoomLevel > 0 ? duration / zoomLevel : 0;
+
+  const { handleZoomSliderChange, handleWheelZoom } = useTimelineZoom({
+    duration,
+    zoomLevel,
+    setZoomLevel,
+    viewBoxStartTime,
+    setViewBoxStartTime,
+    displayedDuration: actualDisplayedDuration,
+    canvasForwardRef,
+    pingUserInteraction,
+  });
+
+  const { 
+    // displayedDuration is also returned by useTimelinePan, ensure it matches actualDisplayedDuration if used
+    handleWheelPan, 
+    handleScrollbarScrub 
+  } = useTimelinePan({
+    duration,
+    zoomLevel, // Pass zoomLevel to calculate displayedDuration internally if needed
+    viewBoxStartTime,
+    setViewBoxStartTime,
+    currentTime,
+    isPlaying: isPlayingTimeline,
+    isDraggingMediaSlider: isDraggingTimeline,
+    isUserInteractingWithTimeline: isUserInteractingDebounced,
+    pingUserInteraction,
+    panToTimestampTarget,
+    canvasForwardRef, // For potential internal use, though handleWheelPan takes canvasWidth
+  });
 
   const {
-    isPlaying,
-    isDragging,
+    isPlaying: actualIsPlaying,
+    isDragging: actualIsDragging,
     togglePlayPause,
-    handleSeekStart: onCanvasSeekStart,
+    handleSeekStart,
   } = useTimelineControls({
     videoElement,
     audioContextRef,
@@ -63,215 +93,124 @@ const Timeline: React.FC<TimelineProps> = ({ url, videoElement, labels, panToTim
     duration,
     setVideoCurrentTime: setCurrentTime,
     canvasRef: canvasForwardRef,
-    viewBoxStartTime,
-    setViewBoxStartTime,
-    displayedDuration,
+    viewBoxStartTime, 
+    displayedDuration: actualDisplayedDuration, 
+    pingUserInteraction,
+    setViewBoxStartTime: setViewBoxStartTime, // Pass down the setter
   });
 
   useEffect(() => {
-    if (
-      panToTimestampTarget !== null &&
-      panToTimestampTarget !== processedPanTargetRef.current &&
-      duration > 0 && 
-      zoomLevel > 0
-    ) {
-      const timeToCenter = panToTimestampTarget;
-      const newDisplayedDuration = duration / zoomLevel;
-      let newTargetViewBoxStartTime = timeToCenter - newDisplayedDuration / 2;
-
-      newTargetViewBoxStartTime = clampViewBoxStartTime(
-          newTargetViewBoxStartTime,
-          duration,
-          newDisplayedDuration
-      );
-
-      if (Math.abs(newTargetViewBoxStartTime - viewBoxStartTime) > VIEWBOX_UPDATE_THRESHOLD) {
-          pingUserInteraction();
-          setViewBoxStartTime(newTargetViewBoxStartTime);
-      }
-      processedPanTargetRef.current = panToTimestampTarget;
-    }
-    if (panToTimestampTarget === null && processedPanTargetRef.current !== null) {
-      processedPanTargetRef.current = null;
-    }
-  }, [panToTimestampTarget, duration, zoomLevel, viewBoxStartTime, setViewBoxStartTime, pingUserInteraction]);
+    setIsPlayingTimeline(actualIsPlaying);
+  }, [actualIsPlaying]);
 
   useEffect(() => {
-    if (duration === 0 || zoomLevel === MIN_ZOOM) {
-        if (viewBoxStartTime !== 0) setViewBoxStartTime(0);
-        return;
-    }
-    if (!isPlaying || isUserInteracting || isDragging) {
-        return;
-    }
+    setIsDraggingTimeline(actualIsDragging);
+  }, [actualIsDragging]);
 
-    const newDisplayedDuration = displayedDuration;
-    let newTargetViewBoxStartTime = viewBoxStartTime;
-    const buffer = newDisplayedDuration * PLAYBACK_PAN_BUFFER_RATIO;
-    let shouldAdjust = false;
+  // Combined wheel handler
+  const handleWheelScroll = useCallback((event: WheelEvent) => {
+    const canvas = canvasForwardRef.current;
+    if (!canvas || duration === 0 || isDraggingTimeline) return;
 
-    if (currentTime < viewBoxStartTime + buffer) {
-        newTargetViewBoxStartTime = currentTime - newDisplayedDuration * PLAYBACK_REPOSITION_FACTOR_LEFT;
-        shouldAdjust = true;
-    } else if (currentTime > viewBoxStartTime + newDisplayedDuration - buffer) {
-        newTargetViewBoxStartTime = currentTime - newDisplayedDuration * PLAYBACK_REPOSITION_FACTOR_RIGHT;
-        shouldAdjust = true;
-    }
+    pingUserInteraction();
+    event.preventDefault();
+    event.stopPropagation();
 
-    if (shouldAdjust) {
-        newTargetViewBoxStartTime = clampViewBoxStartTime(
-            newTargetViewBoxStartTime,
-            duration,
-            newDisplayedDuration
-        );
-        
-        if (Math.abs(newTargetViewBoxStartTime - viewBoxStartTime) > VIEWBOX_UPDATE_THRESHOLD) {
-            setViewBoxStartTime(newTargetViewBoxStartTime);
-        }
-    }
-  }, [currentTime, duration, zoomLevel, viewBoxStartTime, isPlaying, isDragging, displayedDuration, setViewBoxStartTime, isUserInteracting, pingUserInteraction]);
+    const { ctrlKey, metaKey } = event;
+    const rect = canvas.getBoundingClientRect();
+    const mouseXRelative = event.clientX - rect.left;
 
-  if (url !== prevUrl) {
-    setPrevUrl(url);
-
-    if (url) {
-      processAudioData(url);
-      setZoomLevel(MIN_ZOOM);
-      setViewBoxStartTime(0);
+    if (ctrlKey || metaKey) {
+      handleWheelZoom(event, mouseXRelative, rect.width);
     } else {
-      setWaveformData([]);
-      setDuration(0);
-      setCurrentTime(0);
-      setZoomLevel(MIN_ZOOM);
-      setViewBoxStartTime(0);
+      handleWheelPan(event, rect.width);
     }
-  }
+  }, [
+    canvasForwardRef, 
+    duration, 
+    isDraggingTimeline, 
+    pingUserInteraction,
+    handleWheelZoom, 
+    handleWheelPan
+  ]);
+  
+  useEffect(() => {
+    const container = waveformContainerRef.current;
+    if (container && handleWheelScroll) { 
+      const wheelListener = (event: WheelEvent) => {
+        handleWheelScroll(event);
+      };
+      container.addEventListener('wheel', wheelListener, { passive: false });
+      return () => {
+        container.removeEventListener('wheel', wheelListener);
+      };
+    }
+  }, [handleWheelScroll, waveformContainerRef]);
 
   useEffect(() => {
-    if (!videoElement) return
-    const animate = () => {
-      if (videoElement && !isDragging) {
-        setCurrentTime(videoElement.currentTime)
+    if (url !== prevUrl) {
+      setPrevUrl(url);
+      if (url) {
+        processAudioData(url);
+        setZoomLevel(MIN_ZOOM); // Reset zoom to min
+        setViewBoxStartTime(0);   // Reset pan to start
+      } else {
+        setWaveformData([]);
+        setAudioDuration(0);
+        setCurrentTime(0);
+        setZoomLevel(MIN_ZOOM); // Reset zoom to min
+        setViewBoxStartTime(0);   // Reset pan to start
       }
-      animationFrameRef.current = requestAnimationFrame(animate)
     }
-    animationFrameRef.current = requestAnimationFrame(animate)
+  }, [url, prevUrl, processAudioData, setWaveformData, setAudioDuration, setCurrentTime, setZoomLevel, setViewBoxStartTime]);
+  
+  // Effect to reset view if duration becomes 0 (e.g. audio error or cleared)
+  useEffect(() => {
+    if (duration === 0) {
+        if (viewBoxStartTime !== 0) setViewBoxStartTime(0);
+        if (zoomLevel !== MIN_ZOOM) setZoomLevel(MIN_ZOOM);
+    }
+  }, [duration, viewBoxStartTime, zoomLevel]); // setViewBoxStartTime & setZoomLevel are stable setters from useState
+
+  useEffect(() => {
+    if (!videoElement) return;
+    const animate = () => {
+      if (videoElement && !actualIsDragging) { 
+        setCurrentTime(videoElement.currentTime);
+      }
+      animationFrameRef.current = requestAnimationFrame(animate);
+    };
+    animationFrameRef.current = requestAnimationFrame(animate);
     return () => {
       if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
+        cancelAnimationFrame(animationFrameRef.current);
       }
-    }
-  }, [videoElement, isDragging, setCurrentTime])
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    const millis = Math.floor((seconds - (mins * 60) - secs) * 100);
-    if (zoomLevel > 5 || displayedDuration < 15) { 
-        return `${mins}:${secs.toString().padStart(2, '0')}.${millis.toString().padStart(2, '0')}`;
-    }
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
+    };
+  }, [videoElement, actualIsDragging, setCurrentTime]);
 
   const handleCanvasSeekStart = useCallback((time: number) => {
     if (videoElement) {
-      onCanvasSeekStart(time);
+      handleSeekStart(time);
     }
-  }, [videoElement, onCanvasSeekStart])
+  }, [videoElement, handleSeekStart]);
 
-  const handleZoomSliderChange = (value: number[]) => {
-    const newZoom = value[0];
-    if (newZoom === zoomLevel) return;
-    const canvas = canvasForwardRef.current;
-    if (!canvas || duration === 0) {
-      setZoomLevel(newZoom);
-      if (newZoom === MIN_ZOOM) setViewBoxStartTime(0);
-      return;
+  const increaseZoom = () => {
+    const newZoom = Math.min(zoomLevel + 1, 20); // MAX_ZOOM is 20
+    if (newZoom !== zoomLevel) {
+      handleZoomSliderChange([newZoom]);
     }
-    const centerTimeOfView = viewBoxStartTime + displayedDuration / 2;
-    const newDisplayedDurationZoom = duration / newZoom;
-    let newViewBoxStartTimeZoom = centerTimeOfView - newDisplayedDurationZoom / 2;
-    
-    newViewBoxStartTimeZoom = clampViewBoxStartTime(
-        newViewBoxStartTimeZoom,
-        duration,
-        newDisplayedDurationZoom
-    );
-
-    setZoomLevel(newZoom);
-    setViewBoxStartTime(newViewBoxStartTimeZoom);
-    if (newZoom === MIN_ZOOM && viewBoxStartTime !== 0) setViewBoxStartTime(0);
   };
 
-  const handleWheelScroll = useCallback((e: React.WheelEvent) => {
-    const canvas = canvasForwardRef.current;
-    if (!canvas || duration === 0 || isDragging) return;
-
-    pingUserInteraction();
-
-    const { deltaX, deltaY, metaKey, shiftKey } = e;
-    const absDeltaX = Math.abs(deltaX);
-    const absDeltaY = Math.abs(deltaY);
-
-    let calculatedViewBoxStartTime = viewBoxStartTime;
-    let intentToPan = false;
-
-    const isPixelScroll = e.deltaMode === WheelEvent.DOM_DELTA_PIXEL;
-    const minDeltaThreshold = isPixelScroll ? 2 : 0.2; 
-
-    // 1. Meta Key (Cmd/Windows) for browser default behavior (e.g., page zoom)
-    if (metaKey) {
-        return; // Do not prevent default, let browser handle it
+  const decreaseZoom = () => {
+    const newZoom = Math.max(zoomLevel - 1, MIN_ZOOM);
+    if (newZoom !== zoomLevel) {
+      handleZoomSliderChange([newZoom]);
     }
-
-    // 2. Explicit Pan with Shift key
-    if (shiftKey && (absDeltaX > minDeltaThreshold || absDeltaY > minDeltaThreshold)) {
-        e.preventDefault();
-        e.stopPropagation();
-        intentToPan = true;
-        const panDelta = absDeltaX > absDeltaY * 0.5 ? deltaX : deltaY; // Prioritize X, fallback to Y for trackpads
-        const timeDelta = (panDelta / canvas.getBoundingClientRect().width) * displayedDuration * MOUSE_WHEEL_PAN_SENSITIVITY_FACTOR;
-        calculatedViewBoxStartTime = viewBoxStartTime + timeDelta;
-    }
-    // 3. Unmodified Mouse Wheel or Trackpad Swipe (horizontal pan only)
-    else if (!metaKey && !shiftKey) {
-        if (absDeltaX > minDeltaThreshold) { // Horizontal Pan only
-            e.preventDefault();
-            e.stopPropagation();
-            intentToPan = true;
-            const timeDelta = (deltaX / canvas.getBoundingClientRect().width) * displayedDuration * MOUSE_WHEEL_PAN_SENSITIVITY_FACTOR;
-            calculatedViewBoxStartTime = viewBoxStartTime + timeDelta;
-        }
-    }
-
-    // Apply pan changes if needed
-    if (intentToPan) {
-        calculatedViewBoxStartTime = clampViewBoxStartTime(
-            calculatedViewBoxStartTime,
-            duration,
-            displayedDuration
-        );
-        
-        if (Math.abs(calculatedViewBoxStartTime - viewBoxStartTime) > 0.00001) {
-            setViewBoxStartTime(calculatedViewBoxStartTime);
-        }
-    }
-  }, [zoomLevel, viewBoxStartTime, duration, displayedDuration, isDragging, canvasForwardRef, setViewBoxStartTime, pingUserInteraction]);
-
-  const handleScrollbarScrub = useCallback((newStartTime: number) => {
-    pingUserInteraction();
-
-    setViewBoxStartTime(newStartTime);
-  }, [setViewBoxStartTime, pingUserInteraction]);
+  };
 
   return (
-    <div className="w-full space-y-1">
-      <div 
-        ref={waveformContainerRef} 
-        onWheel={handleWheelScroll} 
-        className="w-full relative cursor-grab active:cursor-grabbing select-none touch-none"
-        tabIndex={-1} 
-      >
+    <div className="flex flex-col gap-2 select-none">
+      <div ref={waveformContainerRef} className="waveform-container relative">
         <WaveformCanvas
           ref={canvasForwardRef}
           waveformData={waveformData}
@@ -279,72 +218,58 @@ const Timeline: React.FC<TimelineProps> = ({ url, videoElement, labels, panToTim
           duration={duration}
           isLoading={isAudioLoading}
           onSeekStart={handleCanvasSeekStart}
-          zoomLevel={zoomLevel}
-          viewBoxStartTime={viewBoxStartTime}
+          height={80}
+          zoomLevel={zoomLevel} // Pass current zoomLevel state
+          viewBoxStartTime={viewBoxStartTime} // Pass current viewBoxStartTime state
           labels={labels}
         />
       </div>
-      <div className="px-1 pb-1">
+      
+      {duration > 0 && (
         <CustomScrollbar
+          viewBoxStartTime={viewBoxStartTime} // Pass current viewBoxStartTime state
+          displayedDuration={actualDisplayedDuration} // Pass calculated displayed duration
           totalDuration={duration}
-          viewBoxStartTime={viewBoxStartTime}
-          displayedDuration={displayedDuration}
-          onScrub={handleScrollbarScrub}
-          disabled={isAudioLoading || duration === 0 || zoomLevel <= MIN_ZOOM + 0.001}
+          onScrub={handleScrollbarScrub} // From useTimelinePan
+          disabled={isAudioLoading}
         />
-      </div>
-      <div className="flex justify-between items-center text-xs text-muted-foreground font-mono pt-1">
-        <span className="bg-muted px-2 py-1 rounded min-w-[70px] text-center tabular-nums">{formatTime(viewBoxStartTime)}</span>
-        <div className="flex items-center gap-2 flex-grow justify-center px-1 max-w-md mx-auto">
-          <Button
-              variant="outline"
-              size="icon"
-              onClick={() => handleZoomSliderChange([Math.max(MIN_ZOOM, zoomLevel / 1.5)])}
-              disabled={zoomLevel <= MIN_ZOOM || isAudioLoading || duration === 0}
-              className="h-7 w-7 p-0"
-              title="Zoom Out"
-            >
-              <Minus className="h-3.5 w-3.5" />
-            </Button>
+      )}
+
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Button onClick={togglePlayPause} variant="outline" size="icon" disabled={isAudioLoading || duration === 0}>
+            {actualIsPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+          </Button>
+          <div className="text-xs text-muted-foreground font-mono min-w-[70px] text-center tabular-nums bg-muted px-2 py-1 rounded">
+            {formatTime(currentTime, zoomLevel, actualDisplayedDuration)}
+          </div>
+        </div>
+
+        <div className="flex-grow flex items-center justify-center gap-2 max-w-xs">
+          <Button onClick={decreaseZoom} variant="outline" size="icon" disabled={isAudioLoading || zoomLevel <= MIN_ZOOM}>
+            <Minus className="h-4 w-4" />
+          </Button>
           <Slider
-            min={MIN_ZOOM}
-            max={MAX_ZOOM}
-            step={zoomLevel < 5 ? 0.1 : (zoomLevel < 20 ? 0.5 : 1)} 
+            min={MIN_ZOOM} // Use exported MIN_ZOOM
+            max={20}       // MAX_ZOOM is 20 (can be imported or hardcoded if stable)
+            step={0.1}
             value={[zoomLevel]}
-            onValueChange={handleZoomSliderChange}
+            onValueChange={handleZoomSliderChange} // From useTimelineZoom
             disabled={isAudioLoading || duration === 0}
-            className="w-full min-w-[120px] max-w-[200px] data-[disabled]:opacity-50 mx-1"
-            aria-label="Zoom Level"
+            className="w-full"
           />
-           <Button
-              variant="outline"
-              size="icon"
-              onClick={() => handleZoomSliderChange([Math.min(MAX_ZOOM, zoomLevel * 1.5)])}
-              disabled={zoomLevel >= MAX_ZOOM || isAudioLoading || duration === 0}
-              className="h-7 w-7 p-0"
-              title="Zoom In"
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={togglePlayPause}
-            disabled={!videoElement || duration === 0 || isAudioLoading}
-            className="h-8 w-8 p-0 ml-2"
-            title={isPlaying ? "Pause" : "Play"}
-          >
-            {isPlaying ? (
-              <Pause className="h-3 w-3" />
-            ) : (
-              <Play className="h-3 w-3" />
-            )}
+          <Button onClick={increaseZoom} variant="outline" size="icon" disabled={isAudioLoading || zoomLevel >= 20}>
+            <Plus className="h-4 w-4" />
           </Button>
         </div>
-        <span className="bg-muted px-2 py-1 rounded min-w-[70px] text-center tabular-nums">{formatTime(Math.min(viewBoxStartTime + displayedDuration, duration))}</span>
+        
+        <div className="text-xs text-muted-foreground font-mono min-w-[70px] text-center tabular-nums bg-muted px-2 py-1 rounded">
+          {formatTime(duration, zoomLevel, actualDisplayedDuration)}
+        </div>
       </div>
     </div>
   )
 }
 
 export default Timeline
+

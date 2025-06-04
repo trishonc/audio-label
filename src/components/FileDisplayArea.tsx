@@ -15,7 +15,7 @@ interface FileDisplayAreaProps {
 }
 
 const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({ files, activeIndex, onIndexChange, onVideoElementChange, labels, panToTimestampTarget }) => {
-  const [currentUrl, setCurrentUrl] = useState<string | null>(null);
+  const [currentUrl, setCurrentUrl] = useState<string | null>(null);  
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
 
   const videoRef = useCallback((element: HTMLVideoElement | null) => {
@@ -29,15 +29,16 @@ const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({ files, activeIndex, o
     const activeFile = files[activeIndex];
     if (!activeFile) {
       setCurrentUrl(null);
-      if (videoRef) videoRef(null);
       return;
     }
 
     const objectUrl = URL.createObjectURL(activeFile);
     setCurrentUrl(objectUrl);
 
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [activeIndex, files, videoRef]);
+    return () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+  }, [activeIndex, files]);
 
   const handlePrevious = () => {
     if (activeIndex > 0) {

@@ -1,5 +1,11 @@
 import React, { useRef, useEffect, useCallback, forwardRef, useState } from 'react';
 import type { Label } from '../hooks/useLabels'; // Updated import path
+import {
+  renderBackground,
+  renderBars,
+  renderLabelMarkers,
+  renderPlayhead,
+} from '../lib/waveform-drawing-utils';
 
 interface WaveformCanvasProps {
   waveformData: number[];
@@ -13,20 +19,8 @@ interface WaveformCanvasProps {
   labels: Label[]; // Added labels prop
 }
 
-// Helper function to clear and draw the background
-const _renderBackground = (
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  color: string
-) => {
-  ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = color;
-  ctx.fillRect(0, 0, width, height);
-};
-
-// Helper function to calculate the visible segment of waveform data
-const _getVisibleData = (
+// Renamed from _getVisibleData, kept within WaveformCanvas.tsx
+const getVisibleData = (
   fullWaveformData: number[],
   totalDuration: number,
   currentZoomLevel: number,
@@ -40,95 +34,6 @@ const _getVisibleData = (
   const endIndex = Math.ceil(((currentViewBoxStartTime + displayedDuration) / totalDuration) * fullWaveformData.length);
   const visibleSegment = fullWaveformData.slice(startIndex, endIndex);
   return { visibleSegment, startIndex, endIndex, displayedDuration };
-};
-
-// Helper function to draw the waveform bars
-const _renderBars = (
-  ctx: CanvasRenderingContext2D,
-  dataToDraw: number[],
-  canvasWidth: number,
-  canvasHeight: number,
-  drawingAreaCssHeight: number, // The CSS height of the area in which bars are drawn
-  fullWaveformLength: number,
-  totalDuration: number,
-  currentPlayTime: number,
-  playedBarColor: string,
-  unplayedBarColor: string,
-  firstVisibleIndex: number, // The index in the *full* waveformData array that corresponds to dataToDraw[0]
-  dpr: number
-) => {
-  if (dataToDraw.length === 0 || totalDuration === 0) return;
-
-  const barWidthOnCanvas = canvasWidth / dataToDraw.length; // Width of each bar on the canvas
-
-  dataToDraw.forEach((value, index) => {
-    // Calculate bar height based on its value, the CSS height of the drawing area, and a scaling factor (0.9)
-    const barCssHeight = Math.max(0.5, value * drawingAreaCssHeight * 0.9); // Bar height in CSS pixels
-    const barDrawHeightOnCanvas = barCssHeight * dpr; // Convert CSS pixel height to device pixels for drawing
-    const xOnCanvas = index * barWidthOnCanvas;
-    const yOnCanvas = (canvasHeight - barDrawHeightOnCanvas) / 2; // Center vertically in the device pixel canvas
-
-    const actualDataIndex = firstVisibleIndex + index;
-    const barTime = (actualDataIndex / fullWaveformLength) * totalDuration;
-    const isPlayed = barTime < currentPlayTime;
-    
-    ctx.fillStyle = isPlayed ? playedBarColor : unplayedBarColor;
-    // Ensure minimum bar width is 1 physical pixel, with a small gap
-    const actualBarWidthOnCanvas = Math.max(1 * dpr, barWidthOnCanvas - 0.5 * dpr);
-    ctx.fillRect(xOnCanvas, yOnCanvas, actualBarWidthOnCanvas, barDrawHeightOnCanvas);
-  });
-};
-
-// Helper function to draw label markers
-const _renderLabelMarkers = (
-  ctx: CanvasRenderingContext2D,
-  labels: Label[],
-  viewBoxStartTime: number,
-  displayedDuration: number,
-  canvasWidth: number,
-  canvasHeight: number,
-  markerColor: string,
-  dpr: number
-) => {
-  if (displayedDuration === 0 || labels.length === 0) return;
-
-  labels.forEach(label => {
-    if (label.timestamp >= viewBoxStartTime && label.timestamp <= viewBoxStartTime + displayedDuration) {
-      const relativeTimestamp = label.timestamp - viewBoxStartTime;
-      const markerX = (relativeTimestamp / displayedDuration) * canvasWidth;
-      
-      ctx.strokeStyle = markerColor;
-      ctx.lineWidth = 1.5 * dpr; // Make it slightly thicker than 1dpr for visibility
-      ctx.beginPath();
-      ctx.moveTo(markerX, 0);
-      ctx.lineTo(markerX, canvasHeight);
-      ctx.stroke();
-    }
-  });
-};
-
-// Helper function to draw the playhead
-const _renderPlayhead = (
-  ctx: CanvasRenderingContext2D,
-  currentPlayTime: number,
-  currentViewBoxStartTime: number,
-  currentDisplayedDuration: number,
-  canvasWidth: number,
-  canvasHeight: number,
-  playheadColor: string,
-  dpr: number
-) => {
-  if (currentDisplayedDuration === 0) return;
-  if (currentPlayTime >= currentViewBoxStartTime && currentPlayTime <= currentViewBoxStartTime + currentDisplayedDuration) {
-    const progressRatioInView = (currentPlayTime - currentViewBoxStartTime) / currentDisplayedDuration;
-    const progressXOnCanvas = progressRatioInView * canvasWidth;
-    ctx.strokeStyle = playheadColor;
-    ctx.lineWidth = 2 * dpr;
-    ctx.beginPath();
-    ctx.moveTo(progressXOnCanvas, 0);
-    ctx.lineTo(progressXOnCanvas, canvasHeight);
-    ctx.stroke();
-  }
 };
 
 const WaveformCanvas = forwardRef<HTMLCanvasElement, WaveformCanvasProps>((
@@ -177,20 +82,19 @@ const WaveformCanvas = forwardRef<HTMLCanvasElement, WaveformCanvasProps>((
     // CORRECTED: This is the canvas height in CSS pixels, which acts as the context for bar height calculation.
     const cssCanvasHeight = canvasHeight / dpr; 
 
-    _renderBackground(ctx, canvasWidth, canvasHeight, themeColors.backgroundColor);
+    renderBackground(ctx, canvasWidth, canvasHeight, themeColors.backgroundColor);
 
     if ((waveformData.length === 0 && !isLoading) || duration === 0) return;
 
     const { 
       visibleSegment,
       startIndex,
-      // endIndex, // not directly used by drawing helpers but good to have from _getVisibleData
       displayedDuration 
-    } = _getVisibleData(waveformData, duration, zoomLevel, viewBoxStartTime);
+    } = getVisibleData(waveformData, duration, zoomLevel, viewBoxStartTime);
 
     if (visibleSegment.length === 0 && !isLoading) return;
 
-    _renderBars(
+    renderBars(
       ctx,
       visibleSegment,
       canvasWidth,
@@ -205,8 +109,7 @@ const WaveformCanvas = forwardRef<HTMLCanvasElement, WaveformCanvasProps>((
       dpr
     );
 
-    // Add call to render label markers (after bars, before playhead)
-    _renderLabelMarkers(
+    renderLabelMarkers(
       ctx,
       labels,
       viewBoxStartTime,
@@ -217,7 +120,7 @@ const WaveformCanvas = forwardRef<HTMLCanvasElement, WaveformCanvasProps>((
       dpr
     );
 
-    _renderPlayhead(
+    renderPlayhead(
       ctx,
       currentTime,
       viewBoxStartTime,
