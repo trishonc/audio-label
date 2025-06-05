@@ -96,4 +96,46 @@ export const deleteLabelFromDB = async (labelId: string): Promise<void> => {
   } catch (error) {
     console.error(`Failed to delete label with id ${labelId}:`, error);
   }
+};
+
+export const getAllLabelsFromDB = async (): Promise<StoredLabel[]> => {
+  try {
+    return await db.labels.orderBy('timestamp').toArray();
+  } catch (error) {
+    console.error("Failed to retrieve all labels:", error);
+    return [];
+  }
+};
+
+export const getAllLabelsWithFileNames = async (): Promise<Array<{ fileName: string; timestamp: number }>> => {
+  try {
+    const labels = await db.labels.orderBy('timestamp').toArray();
+    const files = await db.files.toArray();
+    
+    return labels.map(label => {
+      const file = files.find(f => f.id === label.fileId);
+      return {
+        fileName: file?.name || 'Unknown File',
+        timestamp: label.timestamp
+      };
+    });
+  } catch (error) {
+    console.error("Failed to retrieve labels with file names:", error);
+    return [];
+  }
+};
+
+export const getLabelsWithFileNameForFile = async (fileId: number): Promise<Array<{ fileName: string; timestamp: number }>> => {
+  try {
+    const labels = await getLabelsForFile(fileId);
+    const file = await db.files.get(fileId);
+    
+    return labels.map(label => ({
+      fileName: file?.name || 'Unknown File',
+      timestamp: label.timestamp
+    }));
+  } catch (error) {
+    console.error(`Failed to retrieve labels with file name for fileId ${fileId}:`, error);
+    return [];
+  }
 }; 

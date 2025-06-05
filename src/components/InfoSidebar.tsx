@@ -2,7 +2,10 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { XCircle } from "lucide-react";
 import { useSessionStore } from "@/store/sessionStore";
-import { formatTimestamp   } from "@/lib/utils";
+import { formatTimestamp } from "@/lib/utils";
+import { exportAllLabelsToCSV, exportClipLabelsToCSV } from "@/lib/csvExport";
+import { getAllLabelsFromDB } from "@/lib/db";
+import { useEffect, useState } from "react";
 
 interface InfoSidebarProps {
   currentClipName: string;
@@ -18,7 +21,29 @@ export function InfoSidebar({
   onNavigateToLabel
 }: InfoSidebarProps) {
   const labels = useSessionStore(state => state.labels);
-  const totalLabelsAllClips = 15;
+  const activeFileId = useSessionStore(state => state.activeFileId);
+  const [totalLabelsAllClips, setTotalLabelsAllClips] = useState(0);
+
+  // Load total labels count from database
+  useEffect(() => {
+    const loadTotalLabelsCount = async () => {
+      const allLabels = await getAllLabelsFromDB();
+      setTotalLabelsAllClips(allLabels.length);
+    };
+    loadTotalLabelsCount();
+  }, [labels]); // Refresh when current labels change
+
+  const handleExportClipData = async () => {
+    if (!activeFileId) {
+      alert('No active file selected.');
+      return;
+    }
+    await exportClipLabelsToCSV(activeFileId);
+  };
+
+  const handleExportAllData = async () => {
+    await exportAllLabelsToCSV();
+  };
 
   return (
     <div className="h-full flex flex-col gap-4 p-4 bg-muted/30 border-l rounded-lg">
@@ -81,8 +106,22 @@ export function InfoSidebar({
       {/* Export Section - buttons side-by-side */}
       <div className="mt-auto flex flex-col gap-2 border-t pt-4">
         <div className="flex gap-2 w-full">
-          <Button variant="outline" className="flex-1">Export Clip Data</Button>
-          <Button variant="outline" className="flex-1">Export All Data</Button>
+          <Button 
+            variant="outline" 
+            className="flex-1"
+            onClick={handleExportClipData}
+            disabled={!activeFileId || labels.length === 0}
+          >
+            Export Clip Data
+          </Button>
+          <Button 
+            variant="outline" 
+            className="flex-1"
+            onClick={handleExportAllData}
+            disabled={totalLabelsAllClips === 0}
+          >
+            Export All Data
+          </Button>
         </div>
       </div>
     </div>
