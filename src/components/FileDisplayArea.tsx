@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react"
 import Player from '@/components/Player'
 import Timeline from '@/components/Timeline'
 
@@ -10,21 +10,25 @@ interface FileDisplayAreaProps {
   onIndexChange: (index: number) => void;
   onVideoElementChange?: (element: HTMLVideoElement | null) => void;
   onCreateLabel?: () => void;
+  onFilesUploaded?: (files: File[]) => void;
 }
 
 // Assume 30fps for frame navigation - can be made configurable later
 const DEFAULT_FPS = 30;
+const ACCEPTED_TYPES = ['video/mp4', 'video/webm', 'video/ogg', 'audio/mpeg', 'audio/wav', 'audio/ogg'];
 
 const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({ 
   files, 
   activeIndex, 
   onIndexChange, 
   onVideoElementChange,
-  onCreateLabel 
+  onCreateLabel,
+  onFilesUploaded
 }) => {
   const [currentUrl, setCurrentUrl] = useState<string | null>(null);  
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
   const [audioScrubFunction, setAudioScrubFunction] = useState<((time: number) => void) | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const videoRef = useCallback((element: HTMLVideoElement | null) => {
     setVideoElement(element);
@@ -36,6 +40,21 @@ const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({
   const handleAudioScrubReady = useCallback((scrubFunction: (time: number) => void) => {
     setAudioScrubFunction(() => scrubFunction);
   }, []);
+
+  const handleAddFiles = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = e.target.files;
+    if (fileList && onFilesUploaded) {
+      const filteredFiles = Array.from(fileList).filter(f => ACCEPTED_TYPES.includes(f.type));
+      if (filteredFiles.length > 0) {
+        onFilesUploaded(filteredFiles);
+      }
+    }
+    e.target.value = ''; // Reset input
+  };
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -134,15 +153,34 @@ const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({
 
   return (
     <div className="h-full flex flex-col">
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept={ACCEPTED_TYPES.join(",")}
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
       <div className="flex items-center justify-between p-4 border-b">
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={handlePrevious}
-          disabled={activeIndex === 0}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handlePrevious}
+            disabled={activeIndex === 0}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleNext}
+            disabled={activeIndex === files.length - 1}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
         
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">
@@ -156,10 +194,10 @@ const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({
         <Button 
           variant="outline" 
           size="sm" 
-          onClick={handleNext}
-          disabled={activeIndex === files.length - 1}
+          onClick={handleAddFiles}
+          title="Add more files"
         >
-          <ChevronRight className="h-4 w-4" />
+          <Plus className="h-4 w-4" />
         </Button>
       </div>
       

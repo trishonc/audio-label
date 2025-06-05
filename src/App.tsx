@@ -73,6 +73,7 @@ function App() {
                 onIndexChange={handleIndexChange}
                 onVideoElementChange={setVideoElement}
                 onCreateLabel={createLabelAtCurrentTimestamp}
+                onFilesUploaded={handleFilesUploaded}
               />
             )}
           </div>
