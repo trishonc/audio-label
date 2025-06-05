@@ -72,6 +72,7 @@ function App() {
                 activeIndex={activeIndex}
                 onIndexChange={handleIndexChange}
                 onVideoElementChange={setVideoElement}
+                onCreateLabel={createLabelAtCurrentTimestamp}
               />
             )}
           </div>

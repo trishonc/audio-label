@@ -15,11 +15,12 @@ import { useSessionStore } from '@/store/sessionStore';
 interface TimelineProps {
   url: string | null;
   videoElement: HTMLVideoElement | null;
+  onAudioScrubReady?: (scrubFunction: (time: number) => void) => void;
 }
 
 const USER_INTERACTION_DEBOUNCE_TIME = 1000; // 1 second
 
-const Timeline: React.FC<TimelineProps> = ({ url, videoElement }) => {
+const Timeline: React.FC<TimelineProps> = ({ url, videoElement, onAudioScrubReady }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | undefined>(undefined);
   const waveformContainerRef = useRef<HTMLDivElement>(null);
@@ -86,6 +87,38 @@ const Timeline: React.FC<TimelineProps> = ({ url, videoElement }) => {
     isInteracting,
     resetDebounce,
   });
+
+  // Audio scrubbing function for frame navigation
+  const startAudioScrubbing = useCallback((time: number) => {
+    if (!audioContextRef.current || !audioBufferRef.current || duration === 0) return;
+    
+    const SCRUB_AUDIO_GAIN = 0.3;
+    const SCRUB_AUDIO_DURATION = 0.04; // 40ms scrub duration
+    
+    try {
+      const audioCtx = audioContextRef.current;
+      const source = audioCtx.createBufferSource();
+      const gainNode = audioCtx.createGain();
+      
+      source.buffer = audioBufferRef.current;
+      source.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      gainNode.gain.value = SCRUB_AUDIO_GAIN;
+      
+      // Ensure scrub time is within buffer bounds
+      const scrubStartTime = Math.max(0, Math.min(time, audioBufferRef.current.duration - SCRUB_AUDIO_DURATION));
+      source.start(0, scrubStartTime, SCRUB_AUDIO_DURATION);
+    } catch (error) {
+      console.error('Error during audio scrubbing:', error);
+    }
+  }, [audioContextRef, audioBufferRef, duration]);
+
+  // Expose audio scrubbing function to parent
+  useEffect(() => {
+    if (onAudioScrubReady && audioContextRef.current && audioBufferRef.current) {
+      onAudioScrubReady(startAudioScrubbing);
+    }
+  }, [onAudioScrubReady, startAudioScrubbing, audioContextRef.current, audioBufferRef.current]);
 
   const handleWheelScroll = useCallback((event: WheelEvent) => {
     const canvas = canvasRef.current;

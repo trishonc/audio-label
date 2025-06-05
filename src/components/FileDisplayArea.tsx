@@ -9,11 +9,22 @@ interface FileDisplayAreaProps {
   activeIndex: number;
   onIndexChange: (index: number) => void;
   onVideoElementChange?: (element: HTMLVideoElement | null) => void;
+  onCreateLabel?: () => void;
 }
 
-const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({ files, activeIndex, onIndexChange, onVideoElementChange }) => {
+// Assume 30fps for frame navigation - can be made configurable later
+const DEFAULT_FPS = 30;
+
+const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({ 
+  files, 
+  activeIndex, 
+  onIndexChange, 
+  onVideoElementChange,
+  onCreateLabel 
+}) => {
   const [currentUrl, setCurrentUrl] = useState<string | null>(null);  
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  const [audioScrubFunction, setAudioScrubFunction] = useState<((time: number) => void) | null>(null);
 
   const videoRef = useCallback((element: HTMLVideoElement | null) => {
     setVideoElement(element);
@@ -21,6 +32,72 @@ const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({ files, activeIndex, o
       onVideoElementChange(element);
     }
   }, [onVideoElementChange]);
+
+  const handleAudioScrubReady = useCallback((scrubFunction: (time: number) => void) => {
+    setAudioScrubFunction(() => scrubFunction);
+  }, []);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Ignore keyboard events if user is typing in an input field
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
+      switch (event.code) {
+        case 'KeyL':
+          event.preventDefault();
+          if (onCreateLabel) {
+            onCreateLabel();
+          }
+          break;
+
+        case 'Space':
+          event.preventDefault();
+          if (videoElement) {
+            if (videoElement.paused) {
+              videoElement.play();
+            } else {
+              videoElement.pause();
+            }
+          }
+          break;
+
+        case 'ArrowLeft':
+          event.preventDefault();
+          if (videoElement && videoElement.duration) {
+            const frameTime = 1 / DEFAULT_FPS;
+            const newTime = Math.max(0, videoElement.currentTime - frameTime);
+            videoElement.currentTime = newTime;
+            // Play audio scrub for frame navigation
+            if (audioScrubFunction) {
+              audioScrubFunction(newTime);
+            }
+          }
+          break;
+
+        case 'ArrowRight':
+          event.preventDefault();
+          if (videoElement && videoElement.duration) {
+            const frameTime = 1 / DEFAULT_FPS;
+            const newTime = Math.min(videoElement.duration, videoElement.currentTime + frameTime);
+            videoElement.currentTime = newTime;
+            // Play audio scrub for frame navigation
+            if (audioScrubFunction) {
+              audioScrubFunction(newTime);
+            }
+          }
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [videoElement, onCreateLabel, audioScrubFunction]);
 
   useEffect(() => {
     const activeFile = files[activeIndex];
@@ -98,6 +175,7 @@ const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({ files, activeIndex, o
           <Timeline 
             url={currentUrl} 
             videoElement={videoElement}
+            onAudioScrubReady={handleAudioScrubReady}
           />
         </div>
       </div>
