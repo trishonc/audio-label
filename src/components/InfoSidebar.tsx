@@ -1,24 +1,23 @@
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { XCircle } from "lucide-react";
-import type { Label } from "../hooks/useLabels";
-import { formatTimestamp } from "@/lib/utils";
+import { useSessionStore } from "@/store/sessionStore";
+import { formatTimestamp   } from "@/lib/utils";
 
 interface InfoSidebarProps {
   currentClipName: string;
-  labels: Label[];
-  onAddLabel: () => void;
+  onCreateLabel: () => void;
   onDeleteLabel: (id: string) => void;
-  onNavigateToTimestamp: (timestamp: number) => void;
+  onNavigateToLabel: (timestamp: number) => void;
 }
 
 export function InfoSidebar({ 
   currentClipName,
-  labels,
-  onAddLabel,
+  onCreateLabel,
   onDeleteLabel,
-  onNavigateToTimestamp
+  onNavigateToLabel
 }: InfoSidebarProps) {
+  const labels = useSessionStore(state => state.labels);
   const totalLabelsAllClips = 15;
 
   return (
@@ -27,7 +26,7 @@ export function InfoSidebar({
 
       {/* Actions Section */}
       <div className="flex flex-col gap-2">
-        <Button className="w-full justify-between" onClick={onAddLabel}>
+        <Button className="w-full justify-between" onClick={onCreateLabel}>
           <span>Label</span>
           <span className="text-xs text-muted-foreground">(L)</span>
         </Button>
@@ -46,7 +45,7 @@ export function InfoSidebar({
                 <li 
                   key={label.id} 
                   className="flex items-center justify-between text-sm p-1.5 hover:bg-accent rounded-sm cursor-pointer group"
-                  onClick={() => onNavigateToTimestamp(label.timestamp)}
+                  onClick={() => onNavigateToLabel(label.timestamp)}
                 >
                   <span>{formatTimestamp(label.timestamp)}</span>
                   <Button

@@ -1,4 +1,4 @@
-import type { Label } from '../hooks/useLabels';
+import type { Label } from '@/lib/types';
 
 // Helper function to clear and draw the background
 export const renderBackground = (

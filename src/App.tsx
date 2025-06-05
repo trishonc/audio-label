@@ -1,53 +1,62 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { ThemeProvider } from "@/components/ThemeProvider"
 import { Header } from "@/components/Header"
 import UploadArea from '@/components/UploadArea'
 import FileDisplayArea from '@/components/FileDisplayArea'
 import { InfoSidebar } from "@/components/InfoSidebar"
-import { useLabels } from '@/hooks/useLabels'; // Import the hook
+import { useLabels } from '@/hooks/useLabels';
+import { useSessionStore } from '@/store/sessionStore'; // Import the new session store
 
 function App() {
-  const [files, setFiles] = useState<File[]>([])
-  const [activeIndex, setActiveIndex] = useState<number>(0)
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
-  const [panToTimestampTarget, setPanToTimestampTarget] = useState<number | null>(null);
 
-  const currentFile = files[activeIndex];
+  const {
+    files,
+    activeFileId,
+    isLoading,
+    loadFilesFromDB,
+    addFiles,
+    setActiveFileId,
+  } = useSessionStore();
 
-  const handleRequestTimelinePan = (timestamp: number) => {
-    setPanToTimestampTarget(timestamp);
-    // Optionally, reset panToTimestampTarget to null after a short delay or after Timeline processes it,
-    // but Timeline will use a ref to only process new values, so direct reset might not be strictly needed here.
-    // For now, let Timeline manage not re-processing the same target.
+  // Load files from IndexedDB on initial mount
+  useEffect(() => {
+    loadFilesFromDB();
+  }, [loadFilesFromDB]);
+
+  const fileObjects = useMemo(() => {
+    return files.map(f => new File([f.data], f.name, { type: f.type, lastModified: f.lastModified }))
+  }, [files]);
+
+  // Use the refactored custom hook for label actions
+  const {
+    createLabelAtCurrentTimestamp,
+    removeLabel,
+    navigateToLabel,
+  } = useLabels({ videoElement }); // Pass only videoElement
+
+  const handleFilesUploaded = async (newFiles: File[]) => {
+    await addFiles(newFiles);
   };
 
-  // Use the custom hook for labels
-  const {
-    labels,
-    addLabel,
-    deleteLabel,
-    navigateToTimestamp,
-  } = useLabels({ 
-    videoElement, 
-    currentFileIdentifier: currentFile?.name, 
-    requestTimelinePan: handleRequestTimelinePan 
-  });
-
-  const handleFilesUploaded = (newFiles: File[]) => {
-    setFiles(prevFiles => {
-      const updatedFiles = [...prevFiles, ...newFiles]
-      const uniqueFiles = Array.from(new Map(updatedFiles.map(f => [f.name, f])).values());
-      if (uniqueFiles.length > prevFiles.length && uniqueFiles.length > 0) {
-        setActiveIndex(prevFiles.length)
-        setPanToTimestampTarget(null); // Reset pan target when new files are uploaded
-      }
-      return uniqueFiles;
-    })
-  }
-
   const handleIndexChange = (index: number) => {
-    setActiveIndex(index);
-    setPanToTimestampTarget(null); // Reset pan target when active file changes
+    const file = files[index];
+    if (file?.id) {
+      setActiveFileId(file.id);
+    }
+  };
+
+  const activeIndex = activeFileId ? files.findIndex(f => f.id === activeFileId) : -1;
+  const currentFile = activeIndex !== -1 ? files[activeIndex] : null;
+
+  if (isLoading && files.length === 0) {
+    return (
+      <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+        <div className="h-screen flex flex-col items-center justify-center bg-background text-foreground">
+          <p>Loading files from local storage...</p> {/* Or a spinner component */}
+        </div>
+      </ThemeProvider>
+    );
   }
 
   return (
@@ -57,24 +66,21 @@ function App() {
         <main className="flex flex-1 p-2 min-h-0 gap-2">
           <div className="w-2/3 flex flex-col min-h-0">
             <UploadArea onFilesUploaded={handleFilesUploaded} showDropzone={files.length === 0} />
-            {files.length > 0 && (
+            {files.length > 0 && activeIndex !== -1 && currentFile && (
               <FileDisplayArea
-                files={files}
+                files={fileObjects}
                 activeIndex={activeIndex}
                 onIndexChange={handleIndexChange}
                 onVideoElementChange={setVideoElement}
-                labels={labels}
-                panToTimestampTarget={panToTimestampTarget}
               />
             )}
           </div>
           <div className="w-1/3 min-h-0">
             <InfoSidebar
               currentClipName={currentFile ? currentFile.name : "No file selected"}
-              labels={labels}
-              onAddLabel={addLabel}
-              onDeleteLabel={deleteLabel}
-              onNavigateToTimestamp={navigateToTimestamp}
+              onCreateLabel={createLabelAtCurrentTimestamp}
+              onDeleteLabel={removeLabel}
+              onNavigateToLabel={navigateToLabel}
             />
           </div>
         </main>

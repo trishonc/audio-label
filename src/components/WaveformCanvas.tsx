@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useCallback, forwardRef, useState } from 'react';
-import type { Label } from '../hooks/useLabels'; // Updated import path
+import type { Label } from '@/lib/types'; // Updated import path
 import {
   renderBackground,
   renderBars,

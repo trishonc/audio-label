@@ -3,18 +3,15 @@ import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import Player from '@/components/Player'
 import Timeline from '@/components/Timeline'
-import type { Label } from "../hooks/useLabels";
 
 interface FileDisplayAreaProps {
   files: File[];
   activeIndex: number;
   onIndexChange: (index: number) => void;
   onVideoElementChange?: (element: HTMLVideoElement | null) => void;
-  labels: Label[];
-  panToTimestampTarget: number | null;
 }
 
-const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({ files, activeIndex, onIndexChange, onVideoElementChange, labels, panToTimestampTarget }) => {
+const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({ files, activeIndex, onIndexChange, onVideoElementChange }) => {
   const [currentUrl, setCurrentUrl] = useState<string | null>(null);  
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
 
@@ -74,7 +71,7 @@ const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({ files, activeIndex, o
           <span className="text-sm font-medium">
             {activeIndex + 1}/{files.length}
           </span>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-sm text-muted-foreground truncate" title={currentFile?.name}>
             {currentFile?.name}
           </span>
         </div>
@@ -101,8 +98,6 @@ const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({ files, activeIndex, o
           <Timeline 
             url={currentUrl} 
             videoElement={videoElement}
-            labels={labels}
-            panToTimestampTarget={panToTimestampTarget}
           />
         </div>
       </div>

@@ -4,8 +4,8 @@ export interface UseAudioProcessingReturn {
   isLoading: boolean;
   duration: number;
   waveformData: number[];
-  audioContextRef: React.MutableRefObject<AudioContext | null>;
-  audioBufferRef: React.MutableRefObject<AudioBuffer | null>;
+  audioContextRef: React.RefObject<AudioContext | null>;
+  audioBufferRef: React.RefObject<AudioBuffer | null>;
   processAudioData: (url: string) => Promise<void>;
   setWaveformData: React.Dispatch<React.SetStateAction<number[]>>;
   setDuration: React.Dispatch<React.SetStateAction<number>>;
@@ -34,7 +34,7 @@ export const useAudioProcessing = (): UseAudioProcessingReturn => {
       setDuration(audioBuffer.duration);
 
       const channelData = audioBuffer.getChannelData(0);
-      const samples = 1000; // Number of waveform bars
+      const samples = 1000;
       const blockSize = Math.floor(channelData.length / samples);
       const waveform: number[] = [];
       let maxValue = 0;
@@ -60,7 +60,6 @@ export const useAudioProcessing = (): UseAudioProcessingReturn => {
       setWaveformData(normalizedWaveform);
     } catch (error) {
       console.error('Error processing audio:', error);
-      // Reset state on error
       setWaveformData([]);
       setDuration(0);
       audioBufferRef.current = null;

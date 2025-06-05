@@ -13,13 +13,15 @@ interface UseTimelineZoomProps {
   viewBoxStartTime: number;
   setViewBoxStartTime: (time: number) => void;
   displayedDuration: number;
-  canvasForwardRef: ReactRefObjectType<HTMLCanvasElement | null>;
-  pingUserInteraction: () => void;
+  canvasRef: ReactRefObjectType<HTMLCanvasElement | null>;
+  resetDebounce: () => void;
 }
 
 interface UseTimelineZoomReturn {
   handleZoomSliderChange: (value: number[]) => void;
   handleWheelZoom: (event: WheelEvent, mouseXRelative: number, canvasWidth: number) => void;
+  increaseZoom: () => void;
+  decreaseZoom: () => void;
 }
 
 export const useTimelineZoom = ({
@@ -29,16 +31,16 @@ export const useTimelineZoom = ({
   viewBoxStartTime,
   setViewBoxStartTime,
   displayedDuration,
-  canvasForwardRef,
-  pingUserInteraction,
+  canvasRef,
+  resetDebounce,
 }: UseTimelineZoomProps): UseTimelineZoomReturn => {
 
   const handleZoomSliderChange = useCallback((value: number[]) => {
     const newZoom = value[0];
     if (newZoom === zoomLevel) return;
 
-    pingUserInteraction();
-    const canvas = canvasForwardRef.current;
+    resetDebounce();
+    const canvas = canvasRef.current;
 
     if (!canvas || duration === 0) {
       setZoomLevel(newZoom);
@@ -57,10 +59,10 @@ export const useTimelineZoom = ({
     if (newZoom === MIN_ZOOM && viewBoxStartTime !== 0) {
       setViewBoxStartTime(0);
     }
-  }, [zoomLevel, duration, viewBoxStartTime, displayedDuration, canvasForwardRef, pingUserInteraction, setZoomLevel, setViewBoxStartTime]);
+  }, [zoomLevel, duration, viewBoxStartTime, displayedDuration, canvasRef, resetDebounce, setZoomLevel, setViewBoxStartTime]);
 
   const handleWheelZoom = useCallback((event: WheelEvent, mouseXRelative: number, canvasWidth: number) => {
-    pingUserInteraction(); // Already called in Timeline.tsx wrapper, but good for standalone use
+    resetDebounce();
     
     const zoomDirection = event.deltaY < 0 ? 1 : -1;
     const oldZoomLevel = zoomLevel;
@@ -76,10 +78,26 @@ export const useTimelineZoom = ({
       setZoomLevel(newZoom);
       setViewBoxStartTime(newViewBoxStartTime);
     }
-  }, [zoomLevel, viewBoxStartTime, duration, displayedDuration, pingUserInteraction, setZoomLevel, setViewBoxStartTime]);
+  }, [zoomLevel, viewBoxStartTime, duration, displayedDuration, resetDebounce, setZoomLevel, setViewBoxStartTime]);
+
+  const increaseZoom = useCallback(() => {
+    const newZoom = Math.min(zoomLevel + 1, MAX_ZOOM);
+    if (newZoom !== zoomLevel) {
+      handleZoomSliderChange([newZoom]);
+    }
+  }, [zoomLevel, handleZoomSliderChange]);
+
+  const decreaseZoom = useCallback(() => {
+    const newZoom = Math.max(zoomLevel - 1, MIN_ZOOM);
+    if (newZoom !== zoomLevel) {
+      handleZoomSliderChange([newZoom]);
+    }
+  }, [zoomLevel, handleZoomSliderChange]);
 
   return {
     handleZoomSliderChange,
     handleWheelZoom,
+    increaseZoom,
+    decreaseZoom,
   };
 }; 
