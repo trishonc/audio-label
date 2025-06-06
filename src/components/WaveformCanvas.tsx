@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useCallback, forwardRef, useState } from 'react';
 import type { Label } from '@/lib/types'; // Updated import path
+import { useTheme } from '@/components/ThemeProvider';
 import {
   renderBackground,
   renderBars,
@@ -51,6 +52,7 @@ const WaveformCanvas = forwardRef<HTMLCanvasElement, WaveformCanvasProps>((
   ref
 ) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const { theme } = useTheme();
   const [themeColors, setThemeColors] = useState({
     backgroundColor: '#000000', // Default fallback
     primaryColor: '#FFFFFF',
@@ -59,15 +61,16 @@ const WaveformCanvas = forwardRef<HTMLCanvasElement, WaveformCanvasProps>((
   });
 
   useEffect(() => {
-    // Fetch theme colors once on mount
-    const styles = getComputedStyle(document.documentElement);
-    setThemeColors({
-      backgroundColor: styles.getPropertyValue('--muted').trim() || '#000000',
-      primaryColor: styles.getPropertyValue('--primary').trim() || '#FFFFFF',
-      mutedForegroundColor: styles.getPropertyValue('--muted-foreground').trim() || '#888888',
-      destructiveColor: styles.getPropertyValue('--destructive').trim() || '#FF0000',
+    requestAnimationFrame(() => {
+      const styles = getComputedStyle(document.documentElement);
+      setThemeColors({
+        backgroundColor: styles.getPropertyValue('--background').trim(),
+        primaryColor: styles.getPropertyValue('--primary').trim(),
+        mutedForegroundColor: styles.getPropertyValue('--muted-foreground').trim(),
+        destructiveColor: styles.getPropertyValue('--destructive').trim(),
+      });
     });
-  }, []); // Empty dependency array ensures this runs only once
+  }, [theme]);
 
   const drawWaveform = useCallback(() => {
     const canvas = ref && typeof ref !== 'function' ? ref.current : null;
