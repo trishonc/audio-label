@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { db, getLabelsForFile, addLabelToDB, deleteLabelFromDB, addFilesToDB, type StoredFile, type StoredLabel } from '@/lib/db';
+import { db, getLabelsForFile, addLabelToDB, deleteLabelFromDB, addFilesToDB, deleteFileFromDB, resetAllData, type StoredFile, type StoredLabel } from '@/lib/db';
 
 interface SessionState {
   files: StoredFile[];
@@ -13,6 +13,9 @@ interface SessionState {
   
   addLabel: (timestamp: number) => Promise<void>;
   deleteLabel: (labelId: string) => Promise<void>;
+  
+  removeFile: (fileId: number) => Promise<void>;
+  resetAllData: () => Promise<void>;
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
@@ -44,10 +47,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     if (trulyNewFiles.length > 0) {
       set(state => ({ files: [...state.files, ...trulyNewFiles] }));
 
-      // If no file was previously active, or to focus the new uploads, set active file.
-      if (get().activeFileId === null || existingFiles.length === 0) {
-        get().setActiveFileId(trulyNewFiles[0].id!);
-      }
+      // Always switch to the first newly uploaded file
+      get().setActiveFileId(trulyNewFiles[0].id!);
     }
   },
 
@@ -84,5 +85,40 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const { labels } = get();
     await deleteLabelFromDB(labelId);
     set({ labels: labels.filter(label => label.id !== labelId) });
+  },
+
+  removeFile: async (fileId) => {
+    const { files, activeFileId } = get();
+    
+    try {
+      await deleteFileFromDB(fileId);
+      
+      const updatedFiles = files.filter(file => file.id !== fileId);
+      set({ files: updatedFiles });
+      
+      // If the deleted file was the active file, switch to another file or clear
+      if (activeFileId === fileId) {
+        if (updatedFiles.length > 0) {
+          // Set the first available file as active
+          get().setActiveFileId(updatedFiles[0].id!);
+        } else {
+          // No files left, clear everything
+          set({ activeFileId: null, labels: [] });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to remove file:', error);
+      throw error;
+    }
+  },
+
+  resetAllData: async () => {
+    try {
+      await resetAllData();
+      set({ files: [], activeFileId: null, labels: [], isLoading: false });
+    } catch (error) {
+      console.error('Failed to reset all data:', error);
+      throw error;
+    }
   },
 })); 

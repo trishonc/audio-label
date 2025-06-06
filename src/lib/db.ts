@@ -138,4 +138,26 @@ export const getLabelsWithFileNameForFile = async (fileId: number): Promise<Arra
     console.error(`Failed to retrieve labels with file name for fileId ${fileId}:`, error);
     return [];
   }
+};
+
+export const deleteFileFromDB = async (fileId: number): Promise<void> => {
+  try {
+    // First delete all labels associated with this file
+    await db.labels.where('fileId').equals(fileId).delete();
+    // Then delete the file itself
+    await db.files.delete(fileId);
+  } catch (error) {
+    console.error(`Failed to delete file with id ${fileId}:`, error);
+    throw error;
+  }
+};
+
+export const resetAllData = async (): Promise<void> => {
+  try {
+    await db.labels.clear();
+    await db.files.clear();
+  } catch (error) {
+    console.error("Failed to reset all data:", error);
+    throw error;
+  }
 }; 

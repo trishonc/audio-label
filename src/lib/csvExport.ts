@@ -41,7 +41,7 @@ export const exportAllLabelsToCSV = async (): Promise<void> => {
   try {
     const data = await getAllLabelsWithFileNames();
     if (data.length === 0) {
-      alert('No labels found to export.');
+      console.log('No labels found to export.');
       return;
     }
 
@@ -50,9 +50,10 @@ export const exportAllLabelsToCSV = async (): Promise<void> => {
     const filename = `all-labels-${timestamp}.csv`;
     
     downloadCSV(csvContent, filename);
+    console.log(`Exported ${data.length} labels to ${filename}`);
   } catch (error) {
     console.error('Failed to export all labels:', error);
-    alert('Failed to export labels. Please try again.');
+    throw error;
   }
 };
 
@@ -60,7 +61,7 @@ export const exportClipLabelsToCSV = async (fileId: number): Promise<void> => {
   try {
     const data = await getLabelsWithFileNameForFile(fileId);
     if (data.length === 0) {
-      alert('No labels found for this clip to export.');
+      console.log('No labels found for this clip to export.');
       return;
     }
 
@@ -70,8 +71,9 @@ export const exportClipLabelsToCSV = async (fileId: number): Promise<void> => {
     const filename = `${clipName}-labels-${timestamp}.csv`;
     
     downloadCSV(csvContent, filename);
+    console.log(`Exported ${data.length} labels for ${data[0]?.fileName} to ${filename}`);
   } catch (error) {
     console.error('Failed to export clip labels:', error);
-    alert('Failed to export clip labels. Please try again.');
+    throw error;
   }
 }; 

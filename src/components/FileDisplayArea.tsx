@@ -163,6 +163,24 @@ const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({
       />
 
       <div className="flex items-center justify-between p-4 border-b">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleAddFiles}
+          title="Add more files"
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+        
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">
+            {activeIndex + 1}/{files.length}
+          </span>
+          <span className="text-sm text-muted-foreground truncate" title={currentFile?.name}>
+            {currentFile?.name}
+          </span>
+        </div>
+        
         <div className="flex items-center gap-2">
           <Button 
             variant="outline" 
@@ -181,24 +199,6 @@ const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
-        
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">
-            {activeIndex + 1}/{files.length}
-          </span>
-          <span className="text-sm text-muted-foreground truncate" title={currentFile?.name}>
-            {currentFile?.name}
-          </span>
-        </div>
-        
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={handleAddFiles}
-          title="Add more files"
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
       </div>
       
       <div className="flex-1 min-h-0 flex flex-col gap-4 p-4">
