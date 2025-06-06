@@ -8,6 +8,7 @@ export interface StoredFile {
   size: number;
   type: string;
   data: Blob; // Store the actual file data as a Blob
+  tags: string[]; // Add tags field
 }
 
 export interface StoredLabel extends Label {
@@ -41,6 +42,7 @@ export const addFileToDB = async (file: File): Promise<StoredFile | null> => {
       size: file.size,
       type: file.type,
       data: file, // Dexie can store File objects directly as they are Blobs
+      tags: [], // Initialize with empty tags array
     };
     const id = await db.files.add(storedFile as StoredFile);
     return { ...storedFile, id };
@@ -107,7 +109,7 @@ export const getAllLabelsFromDB = async (): Promise<StoredLabel[]> => {
   }
 };
 
-export const getAllLabelsWithFileNames = async (): Promise<Array<{ fileName: string; timestamp: number }>> => {
+export const getAllLabelsWithFileNames = async (): Promise<Array<{ fileName: string; timestamp: number; tags: string[] }>> => {
   try {
     const labels = await db.labels.orderBy('timestamp').toArray();
     const files = await db.files.toArray();
@@ -116,7 +118,8 @@ export const getAllLabelsWithFileNames = async (): Promise<Array<{ fileName: str
       const file = files.find(f => f.id === label.fileId);
       return {
         fileName: file?.name || 'Unknown File',
-        timestamp: label.timestamp
+        timestamp: label.timestamp,
+        tags: file?.tags || []
       };
     });
   } catch (error) {
@@ -125,14 +128,15 @@ export const getAllLabelsWithFileNames = async (): Promise<Array<{ fileName: str
   }
 };
 
-export const getLabelsWithFileNameForFile = async (fileId: number): Promise<Array<{ fileName: string; timestamp: number }>> => {
+export const getLabelsWithFileNameForFile = async (fileId: number): Promise<Array<{ fileName: string; timestamp: number; tags: string[] }>> => {
   try {
     const labels = await getLabelsForFile(fileId);
     const file = await db.files.get(fileId);
     
     return labels.map(label => ({
       fileName: file?.name || 'Unknown File',
-      timestamp: label.timestamp
+      timestamp: label.timestamp,
+      tags: file?.tags || []
     }));
   } catch (error) {
     console.error(`Failed to retrieve labels with file name for fileId ${fileId}:`, error);
@@ -159,5 +163,49 @@ export const resetAllData = async (): Promise<void> => {
   } catch (error) {
     console.error("Failed to reset all data:", error);
     throw error;
+  }
+};
+
+export const addTagToFile = async (fileId: number, tag: string): Promise<void> => {
+  try {
+    const file = await db.files.get(fileId);
+    if (!file) {
+      throw new Error(`File with id ${fileId} not found`);
+    }
+    
+    // Check if tag already exists
+    if (file.tags.includes(tag)) {
+      return;
+    }
+    
+    const updatedTags = [...file.tags, tag];
+    await db.files.update(fileId, { tags: updatedTags });
+  } catch (error) {
+    console.error(`Failed to add tag to file ${fileId}:`, error);
+    throw error;
+  }
+};
+
+export const removeTagFromFile = async (fileId: number, tag: string): Promise<void> => {
+  try {
+    const file = await db.files.get(fileId);
+    if (!file) {
+      throw new Error(`File with id ${fileId} not found`);
+    }
+    
+    const updatedTags = file.tags.filter(t => t !== tag);
+    await db.files.update(fileId, { tags: updatedTags });
+  } catch (error) {
+    console.error(`Failed to remove tag from file ${fileId}:`, error);
+    throw error;
+  }
+};
+
+export const getFileById = async (fileId: number): Promise<StoredFile | undefined> => {
+  try {
+    return await db.files.get(fileId);
+  } catch (error) {
+    console.error(`Failed to get file ${fileId}:`, error);
+    return undefined;
   }
 }; 

@@ -1,5 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,7 +13,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { XCircle, Trash2, RotateCcw } from "lucide-react";
+import { XCircle, Trash2, RotateCcw, X } from "lucide-react";
 import { useSessionStore } from "@/store/sessionStore";
 import { formatTimestamp } from "@/lib/utils";
 import { exportAllLabelsToCSV, exportClipLabelsToCSV } from "@/lib/csvExport";
@@ -32,12 +34,16 @@ export function InfoSidebar({
   onNavigateToLabel
 }: InfoSidebarProps) {
   const labels = useSessionStore(state => state.labels);
+  const currentFileTags = useSessionStore(state => state.currentFileTags);
   const activeFileId = useSessionStore(state => state.activeFileId);
+  const addTag = useSessionStore(state => state.addTag);
+  const removeTag = useSessionStore(state => state.removeTag);
   const removeFile = useSessionStore(state => state.removeFile);
   const resetAllData = useSessionStore(state => state.resetAllData);
   const [totalLabelsAllClips, setTotalLabelsAllClips] = useState(0);
   const [isRemoving, setIsRemoving] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [tagInput, setTagInput] = useState("");
 
   // Load total labels count from database
   useEffect(() => {
@@ -80,6 +86,35 @@ export function InfoSidebar({
       console.error('Failed to reset data:', error);
     } finally {
       setIsResetting(false);
+    }
+  };
+
+  const handleAddTag = async () => {
+    const trimmedTag = tagInput.trim();
+    if (!trimmedTag || !activeFileId || currentFileTags.includes(trimmedTag)) {
+      return;
+    }
+    
+    try {
+      await addTag(trimmedTag);
+      setTagInput("");
+    } catch (error) {
+      console.error('Failed to add tag:', error);
+    }
+  };
+
+  const handleTagKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddTag();
+    }
+  };
+
+  const handleRemoveTag = async (tag: string) => {
+    try {
+      await removeTag(tag);
+    } catch (error) {
+      console.error('Failed to remove tag:', error);
     }
   };
 
@@ -130,6 +165,53 @@ export function InfoSidebar({
             <p className="text-sm text-muted-foreground text-center py-4">No labels yet.</p>
           )}
         </ScrollArea>
+      </div>
+
+      {/* Tags Section */}
+      <div className="flex flex-col gap-2 border-t pt-4 mt-2">
+        <h3 className="text-lg font-medium">Tags</h3>
+        <div className="flex gap-2">
+          <Input
+            placeholder="Add tag..."
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyPress={handleTagKeyPress}
+            disabled={!activeFileId}
+            className="flex-1"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleAddTag}
+            disabled={!activeFileId || !tagInput.trim() || currentFileTags.includes(tagInput.trim())}
+          >
+            Add
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {currentFileTags.length > 0 ? (
+            currentFileTags.map((tag) => (
+              <Badge
+                key={tag}
+                variant="secondary"
+                className="flex items-center gap-1 cursor-pointer group"
+              >
+                <span>{tag}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-3 w-3 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-transparent"
+                  onClick={() => handleRemoveTag(tag)}
+                  title="Remove tag"
+                >
+                  <X className="h-2 w-2" />
+                </Button>
+              </Badge>
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground">No tags added.</p>
+          )}
+        </div>
       </div>
 
       {/* Global Info Section */}

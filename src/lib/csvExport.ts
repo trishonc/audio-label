@@ -3,6 +3,7 @@ import { getAllLabelsWithFileNames, getLabelsWithFileNameForFile } from './db';
 interface LabelData {
   fileName: string;
   timestamp: number;
+  tags: string[];
 }
 
 const formatTimestamp = (timestamp: number): string => {
@@ -12,10 +13,11 @@ const formatTimestamp = (timestamp: number): string => {
 };
 
 const generateCSVContent = (data: LabelData[]): string => {
-  const headers = ['File Name', 'Timestamp'];
+  const headers = ['File Name', 'Timestamp', 'Tags'];
   const rows = data.map(item => [
     `"${item.fileName.replace(/"/g, '""')}"`, // Escape quotes in filenames
-    formatTimestamp(item.timestamp)
+    formatTimestamp(item.timestamp),
+    `"${item.tags.join(', ').replace(/"/g, '""')}"` // Join tags with comma and escape quotes
   ]);
 
   return [headers, ...rows].map(row => row.join(',')).join('\n');

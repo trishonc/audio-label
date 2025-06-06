@@ -1,10 +1,11 @@
 import { create } from 'zustand';
-import { db, getLabelsForFile, addLabelToDB, deleteLabelFromDB, addFilesToDB, deleteFileFromDB, resetAllData, type StoredFile, type StoredLabel } from '@/lib/db';
+import { db, getLabelsForFile, addLabelToDB, deleteLabelFromDB, addFilesToDB, deleteFileFromDB, resetAllData, addTagToFile, removeTagFromFile, getFileById, type StoredFile, type StoredLabel } from '@/lib/db';
 
 interface SessionState {
   files: StoredFile[];
   activeFileId: number | null;
   labels: StoredLabel[];
+  currentFileTags: string[];
   isLoading: boolean;
   
   loadFilesFromDB: () => Promise<void>;
@@ -14,6 +15,9 @@ interface SessionState {
   addLabel: (timestamp: number) => Promise<void>;
   deleteLabel: (labelId: string) => Promise<void>;
   
+  addTag: (tag: string) => Promise<void>;
+  removeTag: (tag: string) => Promise<void>;
+  
   removeFile: (fileId: number) => Promise<void>;
   resetAllData: () => Promise<void>;
 }
@@ -22,6 +26,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   files: [],
   activeFileId: null,
   labels: [],
+  currentFileTags: [],
   isLoading: true,
 
   loadFilesFromDB: async () => {
@@ -56,13 +61,16 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     if (fileId === get().activeFileId) return;
 
     if (fileId === null) {
-      set({ activeFileId: null, labels: [] });
+      set({ activeFileId: null, labels: [], currentFileTags: [] });
       return;
     }
     
     set({ activeFileId: fileId, isLoading: true });
-    const labels = await getLabelsForFile(fileId);
-    set({ labels, isLoading: false });
+    const [labels, file] = await Promise.all([
+      getLabelsForFile(fileId),
+      getFileById(fileId)
+    ]);
+    set({ labels, currentFileTags: file?.tags || [], isLoading: false });
   },
 
   addLabel: async (timestamp) => {
@@ -87,6 +95,22 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({ labels: labels.filter(label => label.id !== labelId) });
   },
 
+  addTag: async (tag: string) => {
+    const { activeFileId } = get();
+    if (!activeFileId) return;
+
+    await addTagToFile(activeFileId, tag);
+    set(state => ({ currentFileTags: [...state.currentFileTags, tag] }));
+  },
+
+  removeTag: async (tag: string) => {
+    const { activeFileId } = get();
+    if (!activeFileId) return;
+    
+    await removeTagFromFile(activeFileId, tag);
+    set(state => ({ currentFileTags: state.currentFileTags.filter(t => t !== tag) }));
+  },
+
   removeFile: async (fileId) => {
     const { files, activeFileId } = get();
     
@@ -103,7 +127,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           get().setActiveFileId(updatedFiles[0].id!);
         } else {
           // No files left, clear everything
-          set({ activeFileId: null, labels: [] });
+          set({ activeFileId: null, labels: [], currentFileTags: [] });
         }
       }
     } catch (error) {
@@ -115,7 +139,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   resetAllData: async () => {
     try {
       await resetAllData();
-      set({ files: [], activeFileId: null, labels: [], isLoading: false });
+      set({ files: [], activeFileId: null, labels: [], currentFileTags: [], isLoading: false });
     } catch (error) {
       console.error('Failed to reset all data:', error);
       throw error;
