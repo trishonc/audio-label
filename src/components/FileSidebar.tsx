@@ -1,23 +1,20 @@
 import { useSessionStore } from "@/store/sessionStore";
 import { getAllLabelsFromDB } from "@/lib/db";
 import { useEffect, useState } from "react";
-import { ActionsSection } from "./file-sidebar/ActionsArea";
+
 import { ClipInfoSection } from "./file-sidebar/FileInfoArea";
 import { TagsSection } from "./file-sidebar/TagsArea";
-import { GlobalInfoSection } from "./file-sidebar/GlobalInfoArea";
 import { FileManagementSection } from "./file-sidebar/FileManagementArea";
 import { ExportSection } from "./file-sidebar/ExportSection";
 
 interface FileSidebarProps {
   currentClipName: string;
-  onCreateLabel: () => void;
   onDeleteLabel: (id: string) => void;
   onNavigateToLabel: (timestamp: number) => void;
 }
 
 export function FileSidebar({ 
   currentClipName,
-  onCreateLabel,
   onDeleteLabel,
   onNavigateToLabel
 }: FileSidebarProps) {
@@ -33,24 +30,26 @@ export function FileSidebar({
   }, [labels]);
 
   return (
-    <div className="h-full flex flex-col gap-4 p-4 border-l">
-      <h2 className="text-xl font-semibold mb-2 border-b pb-2">Options & Info</h2>
-
-      <ActionsSection onCreateLabel={onCreateLabel} />
-
+    <div className="h-full flex flex-col p-4 border-l">
       <ClipInfoSection 
-        currentClipName={currentClipName}
+        totalLabelsAllClips={totalLabelsAllClips}
         onNavigateToLabel={onNavigateToLabel}
         onDeleteLabel={onDeleteLabel}
       />
 
-      <TagsSection />
 
-      <GlobalInfoSection totalLabelsAllClips={totalLabelsAllClips} />
 
-      <FileManagementSection currentClipName={currentClipName} />
+      <div className="mt-4">
+        <TagsSection />
+      </div>
 
-      <ExportSection totalLabelsAllClips={totalLabelsAllClips} />
+      <div className="mt-4">
+        <ExportSection totalLabelsAllClips={totalLabelsAllClips} />
+      </div>
+
+      <div className="mt-4">
+        <FileManagementSection currentClipName={currentClipName} />
+      </div>
     </div>
   );
 } 

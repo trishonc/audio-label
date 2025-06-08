@@ -23,6 +23,7 @@ export function ExportSection({ totalLabelsAllClips }: ExportSectionProps) {
   
   return (
     <div className="mt-auto flex flex-col gap-2 border-t pt-4">
+      <h3 className="text-lg font-medium">Export</h3>
       <div className="flex gap-2 w-full">
         <Button 
           variant="outline" 
@@ -30,15 +31,15 @@ export function ExportSection({ totalLabelsAllClips }: ExportSectionProps) {
           onClick={handleExportClipData}
           disabled={!activeFileId || labels.length === 0}
         >
-          Export Clip Data
+          File Data
         </Button>
         <Button 
           variant="outline" 
           className="flex-1"
           onClick={handleExportAllData}
           disabled={totalLabelsAllClips === 0}
-        >
-          Export All Data
+        > 
+          All Data
         </Button>
       </div>
     </div>

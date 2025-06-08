@@ -51,65 +51,67 @@ export function FileManagementSection({ currentClipName }: FileManagementSection
 
   return (
     <div className="flex flex-col gap-2 border-t pt-4 mt-2">
-      <h3 className="text-lg font-medium">File Management</h3>
+      <h3 className="text-lg font-medium">Manage</h3>
       
-      <AlertDialog>
-        <AlertDialogTrigger asChild>
-          <Button 
-            variant="outline" 
-            className="w-full"
-            disabled={!activeFileId || isRemoving}
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            {isRemoving ? "Removing..." : "Remove Current File"}
-          </Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove File</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to remove "{currentClipName}" and all its labels? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleRemoveFile}
+      <div className="flex gap-2 w-full">
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button 
+              variant="destructive" 
+              className="flex-1"
+              disabled={!activeFileId || isRemoving}
             >
-              Remove File
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              <Trash2 className="h-4 w-4" />
+              {isRemoving ? "Removing..." : "Remove This File"}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove File</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to remove "{currentClipName}" and all its labels? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleRemoveFile}
+              >
+                Remove File
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
-      <AlertDialog>
-        <AlertDialogTrigger asChild>
-          <Button 
-            variant="outline" 
-            className="w-full"
-            disabled={isResetting}
-          >
-            <RotateCcw className="h-4 w-4 mr-2" />
-            {isResetting ? "Resetting..." : "Reset All Data"}
-          </Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Reset All Data</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to remove ALL files and labels? This action cannot be undone and will permanently delete all your data.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleResetAllData}
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button 
+              variant="destructive" 
+              className="flex-1"
+              disabled={isResetting}
             >
-              Reset All Data
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              <RotateCcw className="h-4 w-4" />
+              {isResetting ? "Resetting..." : "Reset All Files"}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Reset All Data</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to remove ALL files and labels? This action cannot be undone and will permanently delete all your data.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleResetAllData}
+              >
+                Reset All Data
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   );
 } 

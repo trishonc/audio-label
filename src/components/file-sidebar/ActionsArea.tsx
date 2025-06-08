@@ -6,10 +6,9 @@ interface ActionsSectionProps {
 
 export function ActionsSection({ onCreateLabel }: ActionsSectionProps) {
   return (
-    <div className="flex flex-col gap-2">
-      <Button className="w-full justify-between" onClick={onCreateLabel}>
-        <span>Label</span>
-        <span className="text-xs text-muted-foreground">(L)</span>
+    <div className="flex flex-col">
+      <Button className="w-full" onClick={onCreateLabel}>
+        <span>Add Label (L)</span>
       </Button>
     </div>
   );

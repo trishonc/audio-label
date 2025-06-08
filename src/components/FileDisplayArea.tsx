@@ -87,6 +87,7 @@ const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({
             url={currentUrl} 
             videoElement={videoElement}
             onAudioScrubReady={handleAudioScrubReady}
+            onCreateLabel={onCreateLabel}
           />
         </div>
       </div>

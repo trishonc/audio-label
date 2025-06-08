@@ -12,11 +12,13 @@ interface TimelineProps {
   url: string | null;
   videoElement: HTMLVideoElement | null;
   onAudioScrubReady?: (scrubFunction: (time: number) => void) => void;
+  onCreateLabel?: () => void;
 }
 
 const USER_INTERACTION_DEBOUNCE_TIME = 1000; // 1 second
+const FRAME_DURATION = 1/30; // Assuming 30fps for frame navigation
 
-const Timeline: React.FC<TimelineProps> = ({ url, videoElement, onAudioScrubReady }) => {
+const Timeline: React.FC<TimelineProps> = ({ url, videoElement, onAudioScrubReady, onCreateLabel }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | undefined>(undefined);
 
@@ -60,7 +62,7 @@ const Timeline: React.FC<TimelineProps> = ({ url, videoElement, onAudioScrubRead
     setViewBoxStartTime,
   });
 
-  const { handleZoomSliderChange, handleWheelZoom, increaseZoom, decreaseZoom } = useTimelineZoom({
+  const { handleZoomSliderChange, handleWheelZoom } = useTimelineZoom({
     duration,
     zoomLevel,
     setZoomLevel,
@@ -82,6 +84,50 @@ const Timeline: React.FC<TimelineProps> = ({ url, videoElement, onAudioScrubRead
     isInteracting,
     resetDebounce,
   });
+
+  // Frame navigation functions
+  const handlePreviousFrame = useCallback(() => {
+    if (!videoElement || duration === 0) return;
+    const newTime = Math.max(0, videoElement.currentTime - FRAME_DURATION);
+    videoElement.currentTime = newTime;
+    resetDebounce();
+  }, [videoElement, duration, resetDebounce]);
+
+  const handleNextFrame = useCallback(() => {
+    if (!videoElement || duration === 0) return;
+    const newTime = Math.min(duration, videoElement.currentTime + FRAME_DURATION);
+    videoElement.currentTime = newTime;
+    resetDebounce();
+  }, [videoElement, duration, resetDebounce]);
+
+  // Label navigation functions
+  const handlePreviousLabel = useCallback(() => {
+    if (!videoElement || duration === 0 || labels.length === 0) return;
+    
+    const currentVideoTime = videoElement.currentTime;
+    const sortedLabels = [...labels].sort((a, b) => a.timestamp - b.timestamp);
+    const previousLabel = sortedLabels
+      .reverse()
+      .find(label => label.timestamp < currentVideoTime - 0.1); // Small threshold to avoid current label
+    
+    if (previousLabel) {
+      videoElement.currentTime = previousLabel.timestamp;
+      resetDebounce();
+    }
+  }, [videoElement, duration, labels, resetDebounce]);
+
+  const handleNextLabel = useCallback(() => {
+    if (!videoElement || duration === 0 || labels.length === 0) return;
+    
+    const currentVideoTime = videoElement.currentTime;
+    const sortedLabels = [...labels].sort((a, b) => a.timestamp - b.timestamp);
+    const nextLabel = sortedLabels.find(label => label.timestamp > currentVideoTime + 0.1); // Small threshold to avoid current label
+    
+    if (nextLabel) {
+      videoElement.currentTime = nextLabel.timestamp;
+      resetDebounce();
+    }
+  }, [videoElement, duration, labels, resetDebounce]);
 
   // Audio scrubbing function for frame navigation
   const startAudioScrubbing = useCallback((time: number) => {
@@ -207,10 +253,13 @@ const Timeline: React.FC<TimelineProps> = ({ url, videoElement, onAudioScrubRead
         duration={duration}
         currentTime={currentTime}
         zoomLevel={zoomLevel}
-        decreaseZoom={decreaseZoom}
-        increaseZoom={increaseZoom}
         handleZoomSliderChange={handleZoomSliderChange}
         displayedDuration={displayedDuration}
+        onPreviousFrame={handlePreviousFrame}
+        onNextFrame={handleNextFrame}
+        onPreviousLabel={handlePreviousLabel}
+        onNextLabel={handleNextLabel}
+        onCreateLabel={onCreateLabel}
       />
     </div>
   )

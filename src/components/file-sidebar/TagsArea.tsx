@@ -36,13 +36,13 @@ export function TagsSection() {
   const handleRemoveTag = async (tag: string) => {
     try {
       await removeTag(tag);
-    } catch (error)      {
+    } catch (error) {
       console.error('Failed to remove tag:', error);
     }
   };
 
   return (
-    <div className="flex flex-col gap-2 border-t pt-4 mt-2">
+    <div className="flex flex-col gap-2 border-t pt-4">
       <h3 className="text-lg font-medium">Tags</h3>
       <div className="flex gap-2">
         <Input
@@ -51,10 +51,12 @@ export function TagsSection() {
           onChange={(e) => setTagInput(e.target.value)}
           onKeyDown={handleTagKeyPress}
           disabled={!activeFileId}
-          className="flex-1"
+          className="flex-1 h-8"
+          size={undefined}
         />
         <Button
           variant="outline"
+          size="sm"
           onClick={handleAddTag}
           disabled={!activeFileId || !tagInput.trim() || currentFileTags.includes(tagInput.trim())}
         >
@@ -62,28 +64,24 @@ export function TagsSection() {
         </Button>
       </div>
       <div className="flex flex-wrap gap-1">
-        {currentFileTags.length > 0 ? (
-          currentFileTags.map((tag) => (
-            <Badge
-              key={tag}
-              variant="secondary"
-              className="flex items-center gap-2"
+        {currentFileTags.map((tag) => (
+          <Badge
+            key={tag}
+            variant="secondary"
+            className="flex items-center gap-1 text-xs"
+          >
+            <span>{tag}</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-3 hover:bg-transparent"
+              onClick={() => handleRemoveTag(tag)}
+              title="Remove tag"
             >
-              <span>{tag}</span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-4 hover:bg-transparent"
-                onClick={() => handleRemoveTag(tag)}
-                title="Remove tag"
-              >
-                <X className="size-4" />
-              </Button>
-            </Badge>
-          ))
-        ) : (
-          <p className="text-sm text-muted-foreground">No tags added.</p>
-        )}
+              <X className="size-3" />
+            </Button>
+          </Badge>
+        ))}
       </div>
     </div>
   );

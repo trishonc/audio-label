@@ -82,7 +82,6 @@ function App() {
             <div className="w-1/3 min-h-0">
               <FileSidebar
                 currentClipName={currentFile ? currentFile.name : "No file selected"}
-                onCreateLabel={createLabelAtCurrentTimestamp}
                 onDeleteLabel={removeLabel}
                 onNavigateToLabel={navigateToLabel}
               />
