@@ -64,7 +64,7 @@ function App() {
       <div className="h-screen flex flex-col bg-background text-foreground">
         <Header />
         <main className="flex flex-1 min-h-0">
-          <div className="w-2/3 flex flex-col min-h-0">
+          <div className="w-3/4 flex flex-col min-h-0">
             <UploadArea onFilesUploaded={handleFilesUploaded} showDropzone={files.length === 0} />
             {files.length > 0 && activeIndex !== -1 && currentFile && (
               <FileDisplayArea
@@ -79,7 +79,7 @@ function App() {
             )}
           </div>
           {files.length > 0 && (
-            <div className="w-1/3 min-h-0">
+            <div className="w-1/4 min-h-0">
               <FileSidebar
                 currentClipName={currentFile ? currentFile.name : "No file selected"}
                 onDeleteLabel={removeLabel}

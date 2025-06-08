@@ -69,9 +69,10 @@ export function FileDisplayHeader({
           variant="outline" 
           size="sm" 
           onClick={onAddFiles}
-          title="Add more files"
+          title="Add files"
         >
           <Plus className="size-4" />
+          Add Files
         </Button>
         
         <Button 
@@ -82,6 +83,7 @@ export function FileDisplayHeader({
           title="Export all data"
         >
           <Download className="size-4" />
+          Export ({totalLabelsAllClips})
         </Button>
 
         <AlertDialog>
@@ -93,6 +95,7 @@ export function FileDisplayHeader({
               title="Reset all data"
             >
               <RotateCcw className="size-4" />
+              {isResetting ? "Resetting..." : "Reset"}
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
@@ -115,7 +118,7 @@ export function FileDisplayHeader({
       </div>
       
       <div className="flex items-center">
-        <span className="text-sm text-muted-foreground truncate" title={currentFileName}>
+        <span className="text-lg font-medium truncate" title={currentFileName}>
           {currentFileName}
         </span>
       </div>

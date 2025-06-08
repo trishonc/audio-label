@@ -18,9 +18,8 @@ export function ClipInfoSection({
   return (
     <div className="flex flex-col gap-2 flex-1">
       <div className="flex justify-between text-sm items-center">
-        <h3 className="text-lg font-medium">Labels</h3>
-        <span className="text-primary">{labels.length} current</span>
-      </div>
+        <h3 className="text-lg font-medium">Labels ({labels.length})</h3>
+       </div>
       <ScrollArea className="flex-1 rounded-md border p-3 bg-background h-full">
         {labels.length > 0 ? (
           <div className="space-y-1">
