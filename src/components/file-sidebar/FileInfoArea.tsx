@@ -25,9 +25,8 @@ export function ClipInfoSection({
           <div className="space-y-1">
             {labels.map((label) => (
               <div key={label.id}>
-                <Button
-                  variant="outline"
-                  className="w-full justify-between h-auto p-2 group"
+                <div
+                  className="w-full justify-between h-auto p-2 group border rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground flex items-center"
                   onClick={() => onNavigateToLabel(label.timestamp)}
                 >
                   <span>{formatTimestamp(label.timestamp)}</span>
@@ -43,7 +42,7 @@ export function ClipInfoSection({
                   >
                     <XCircle className="size-4 text-muted-foreground hover:text-destructive" />
                   </Button>
-                </Button>
+                </div>
               </div>
             ))}
           </div>

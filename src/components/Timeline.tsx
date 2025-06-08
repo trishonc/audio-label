@@ -17,6 +17,7 @@ interface TimelineProps {
 
 const USER_INTERACTION_DEBOUNCE_TIME = 1000; // 1 second
 const FRAME_DURATION = 1/30; // Assuming 30fps for frame navigation
+const LABEL_TOLERANCE = 0.1; // 100ms tolerance for detecting if playhead is "over" a label
 
 const Timeline: React.FC<TimelineProps> = ({ url, videoElement, onAudioScrubReady, onCreateLabel }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -30,6 +31,7 @@ const Timeline: React.FC<TimelineProps> = ({ url, videoElement, onAudioScrubRead
   const [viewBoxStartTime, setViewBoxStartTime] = useState<number>(0);
 
   const labels = useSessionStore(state => state.labels);
+  const deleteLabel = useSessionStore(state => state.deleteLabel);
 
   const {
     isLoading,
@@ -153,6 +155,48 @@ const Timeline: React.FC<TimelineProps> = ({ url, videoElement, onAudioScrubRead
       console.error('Error during audio scrubbing:', error);
     }
   }, [audioContextRef, audioBufferRef, duration]);
+
+  // Function to find labels at the current playhead position
+  const findLabelAtCurrentTime = useCallback(() => {
+    if (!videoElement || labels.length === 0) return null;
+    
+    const currentVideoTime = videoElement.currentTime;
+    return labels.find(label => 
+      Math.abs(label.timestamp - currentVideoTime) <= LABEL_TOLERANCE
+    );
+  }, [videoElement, labels]);
+
+  // Function to delete label at current playhead position
+  const deleteLabelAtCurrentTime = useCallback(() => {
+    const labelAtCurrentTime = findLabelAtCurrentTime();
+    if (labelAtCurrentTime) {
+      deleteLabel(labelAtCurrentTime.id);
+    }
+  }, [findLabelAtCurrentTime, deleteLabel]);
+
+  // Keyboard event handler
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Ignore keyboard events if user is typing in an input field
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
+      switch (event.code) {
+        case 'Delete':
+        case 'Backspace':
+          event.preventDefault();
+          deleteLabelAtCurrentTime();
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [deleteLabelAtCurrentTime]);
 
   // Expose audio scrubbing function to parent
   useEffect(() => {
