@@ -10,7 +10,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Trash2, RotateCcw } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useSessionStore } from "@/store/sessionStore";
 import { useState } from "react";
 
@@ -21,9 +21,7 @@ interface FileManagementSectionProps {
 export function FileManagementSection({ currentClipName }: FileManagementSectionProps) {
   const activeFileId = useSessionStore(state => state.activeFileId);
   const removeFile = useSessionStore(state => state.removeFile);
-  const resetAllData = useSessionStore(state => state.resetAllData);
   const [isRemoving, setIsRemoving] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
 
   const handleRemoveFile = async () => {
     if (!activeFileId) return;
@@ -38,80 +36,38 @@ export function FileManagementSection({ currentClipName }: FileManagementSection
     }
   };
 
-  const handleResetAllData = async () => {
-    setIsResetting(true);
-    try {
-      await resetAllData();
-    } catch (error) {
-      console.error('Failed to reset data:', error);
-    } finally {
-      setIsResetting(false);
-    }
-  };
-
   return (
     <div className="flex flex-col gap-2 border-t pt-4 mt-2">
       <h3 className="text-lg font-medium">Manage</h3>
       
-      <div className="flex gap-2 w-full">
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button 
-              variant="destructive" 
-              className="flex-1"
-              disabled={!activeFileId || isRemoving}
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button 
+            variant="destructive" 
+            className="w-full"
+            disabled={!activeFileId || isRemoving}
+          >
+            <Trash2 className="h-4 w-4" />
+            {isRemoving ? "Removing..." : "Remove This File"}
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove File</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove "{currentClipName}" and all its labels? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleRemoveFile}
             >
-              <Trash2 className="h-4 w-4" />
-              {isRemoving ? "Removing..." : "Remove This File"}
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Remove File</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to remove "{currentClipName}" and all its labels? This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction 
-                onClick={handleRemoveFile}
-              >
-                Remove File
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button 
-              variant="destructive" 
-              className="flex-1"
-              disabled={isResetting}
-            >
-              <RotateCcw className="h-4 w-4" />
-              {isResetting ? "Resetting..." : "Reset All Files"}
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Reset All Data</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to remove ALL files and labels? This action cannot be undone and will permanently delete all your data.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction 
-                onClick={handleResetAllData}
-              >
-                Reset All Data
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
+              Remove File
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 } 
