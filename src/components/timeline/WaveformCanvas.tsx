@@ -79,10 +79,15 @@ const WaveformCanvas = forwardRef<HTMLCanvasElement, WaveformCanvasProps>((
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const dpr = window.devicePixelRatio || 1;
+    // Use the same enhanced DPR as in updateCanvasSize
+    const dpr = Math.min(window.devicePixelRatio * 1.5, 3);
     const { width: canvasWidth, height: canvasHeight } = canvas; // These are pixel dimensions (scaled by DPR)
     
-    // CORRECTED: This is the canvas height in CSS pixels, which acts as the context for bar height calculation.
+    // Enable high-quality rendering
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    
+    // This is the canvas height in CSS pixels, which acts as the context for bar height calculation.
     const cssCanvasHeight = canvasHeight / dpr; 
 
     renderBackground(ctx, canvasWidth, canvasHeight, themeColors.backgroundColor);
@@ -151,12 +156,20 @@ const WaveformCanvas = forwardRef<HTMLCanvasElement, WaveformCanvasProps>((
     if (!canvas || !container) return;
 
     const rect = container.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
+    // Use higher DPR for smoother rendering, up to 3x for better quality
+    const dpr = Math.min(window.devicePixelRatio * 1.5, 3);
     
     canvas.width = rect.width * dpr;
     canvas.height = height * dpr;
     canvas.style.width = `${rect.width}px`;
     canvas.style.height = `${height}px`;
+    
+    // Enable better canvas rendering
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+    }
     
     drawWaveform();
   }, [drawWaveform, height, ref]);

@@ -34,7 +34,11 @@ export const useAudioProcessing = (): UseAudioProcessingReturn => {
       setDuration(audioBuffer.duration);
 
       const channelData = audioBuffer.getChannelData(0);
-      const samples = 1000;
+      // Dynamic sample count based on audio duration for optimal resolution
+      // Base: 4000 samples, with additional samples for longer audio
+      const baseSamples = 4000;
+      const durationBonus = Math.floor(audioBuffer.duration / 10) * 500; // +500 samples per 10 seconds
+      const samples = Math.min(baseSamples + durationBonus, 8000); // Cap at 8000 samples
       const blockSize = Math.floor(channelData.length / samples);
       const waveform: number[] = [];
       let maxValue = 0;
@@ -44,13 +48,14 @@ export const useAudioProcessing = (): UseAudioProcessingReturn => {
         const end = start + blockSize;
         let sum = 0;
         
+        // Use RMS (Root Mean Square) for better audio energy representation
         for (let j = start; j < end && j < channelData.length; j++) {
-          sum += Math.abs(channelData[j]);
+          sum += channelData[j] * channelData[j];
         }
         
-        const average = sum / blockSize;
-        waveform.push(average);
-        maxValue = Math.max(maxValue, average);
+        const rms = Math.sqrt(sum / blockSize);
+        waveform.push(rms);
+        maxValue = Math.max(maxValue, rms);
       }
 
       const normalizedWaveform = waveform.map(value => 
