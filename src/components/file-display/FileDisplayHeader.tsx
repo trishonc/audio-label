@@ -34,6 +34,7 @@ export function FileDisplayHeader({
   onNext
 }: FileDisplayHeaderProps) {
   const resetAllData = useSessionStore(state => state.resetAllData);
+  const labels = useSessionStore(state => state.labels);
   const [totalLabelsAllClips, setTotalLabelsAllClips] = useState(0);
   const [isResetting, setIsResetting] = useState(false);
 
@@ -43,7 +44,7 @@ export function FileDisplayHeader({
       setTotalLabelsAllClips(allLabels.length);
     };
     loadTotalLabelsCount();
-  }, []);
+  }, [labels]);
 
   const handleExportAllData = async () => {
     await exportAllLabelsToCSV();
