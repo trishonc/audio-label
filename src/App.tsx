@@ -3,7 +3,7 @@ import { ThemeProvider } from "@/components/ThemeProvider"
 import { Header } from "@/components/Header"
 import UploadArea from '@/components/UploadArea'
 import FileDisplayArea from '@/components/FileDisplayArea'
-import { InfoSidebar } from "@/components/InfoSidebar"
+import { FileSidebar } from "@/components/FileSidebar"
 import { useLabels } from '@/hooks/useLabels';
 import { useSessionStore } from '@/store/sessionStore'; // Import the new session store
 
@@ -63,7 +63,7 @@ function App() {
     <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
       <div className="h-screen flex flex-col bg-background text-foreground">
         <Header />
-        <main className="flex flex-1 p-2 min-h-0 gap-2">
+        <main className="flex flex-1 min-h-0">
           <div className="w-2/3 flex flex-col min-h-0">
             <UploadArea onFilesUploaded={handleFilesUploaded} showDropzone={files.length === 0} />
             {files.length > 0 && activeIndex !== -1 && currentFile && (
@@ -73,18 +73,21 @@ function App() {
                 onIndexChange={handleIndexChange}
                 onVideoElementChange={setVideoElement}
                 onCreateLabel={createLabelAtCurrentTimestamp}
+                onNavigateToLabel={navigateToLabel}
                 onFilesUploaded={handleFilesUploaded}
               />
             )}
           </div>
-          <div className="w-1/3 min-h-0">
-            <InfoSidebar
-              currentClipName={currentFile ? currentFile.name : "No file selected"}
-              onCreateLabel={createLabelAtCurrentTimestamp}
-              onDeleteLabel={removeLabel}
-              onNavigateToLabel={navigateToLabel}
-            />
-          </div>
+          {files.length > 0 && (
+            <div className="w-1/3 min-h-0">
+              <FileSidebar
+                currentClipName={currentFile ? currentFile.name : "No file selected"}
+                onCreateLabel={createLabelAtCurrentTimestamp}
+                onDeleteLabel={removeLabel}
+                onNavigateToLabel={navigateToLabel}
+              />
+            </div>
+          )}
         </main>
       </div>
     </ThemeProvider>

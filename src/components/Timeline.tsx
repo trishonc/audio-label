@@ -1,16 +1,12 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
-import { Button } from "@/components/ui/button"
-import { Slider } from "@/components/ui/slider"
-import { Play, Pause, Minus, Plus } from "lucide-react"
 import { useAudioProcessing } from '@/hooks/useAudioProcessing';
 import { useTimelineControls } from '@/hooks/useTimelineControls';
 import { useTimelineZoom, MIN_ZOOM } from '@/hooks/useTimelineZoom';
 import { useTimelinePan } from '@/hooks/useTimelinePan';
-import WaveformCanvas from '@/components/WaveformCanvas';
-import CustomScrollbar from '@/components/CustomScrollbar';
-import { formatTime } from '@/lib/utils';
 import { useInteractionDebouncer } from '@/hooks/useInteractionDebouncer';
 import { useSessionStore } from '@/store/sessionStore';
+import TimelineControls from './timeline/TimelineControls';
+import TimelineWaveform from './timeline/TimelineWaveform';
 
 interface TimelineProps {
   url: string | null;
@@ -23,7 +19,6 @@ const USER_INTERACTION_DEBOUNCE_TIME = 1000; // 1 second
 const Timeline: React.FC<TimelineProps> = ({ url, videoElement, onAudioScrubReady }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | undefined>(undefined);
-  const waveformContainerRef = useRef<HTMLDivElement>(null);
 
   const [currentTime, setCurrentTime] = useState(0);
   const [prevUrl, setPrevUrl] = useState<string | null>(url);
@@ -146,18 +141,6 @@ const Timeline: React.FC<TimelineProps> = ({ url, videoElement, onAudioScrubRead
     handleWheelPan
   ]);
   
-  useEffect(() => {
-    const container = waveformContainerRef.current;
-    if (container && !isLoading) {
-      const wheelListener = (event: WheelEvent) => handleWheelScroll(event);
-      container.addEventListener('wheel', wheelListener, { passive: false });
-      return () => {
-        container.removeEventListener('wheel', wheelListener);
-      };
-    }
-  }, [handleWheelScroll, waveformContainerRef, isLoading]);
-
-  
   if (url !== prevUrl) {
     setPrevUrl(url);
     if (url) {
@@ -202,63 +185,33 @@ const Timeline: React.FC<TimelineProps> = ({ url, videoElement, onAudioScrubRead
 
   return (
     <div className="flex flex-col gap-2 select-none">
-      <div ref={waveformContainerRef} className="waveform-container relative">
-        <WaveformCanvas
-          ref={canvasRef}
-          waveformData={waveformData}
-          currentTime={currentTime}
-          duration={duration}
-          isLoading={isLoading}
-          onSeekStart={handleCanvasSeekStart}
-          height={80}
-          zoomLevel={zoomLevel}
-          viewBoxStartTime={viewBoxStartTime}
-          labels={labels}
-        />
-      </div>
+      <TimelineWaveform
+        ref={canvasRef}
+        waveformData={waveformData}
+        currentTime={currentTime}
+        duration={duration}
+        isLoading={isLoading}
+        onSeekStart={handleCanvasSeekStart}
+        zoomLevel={zoomLevel}
+        viewBoxStartTime={viewBoxStartTime}
+        labels={labels}
+        displayedDuration={displayedDuration}
+        onScrub={handleScrollbarScrub}
+        handleWheelScroll={handleWheelScroll}
+      />
       
-      {duration > 0 && (
-        <CustomScrollbar
-          viewBoxStartTime={viewBoxStartTime}
-          displayedDuration={displayedDuration}
-          totalDuration={duration}
-          onScrub={handleScrollbarScrub}
-          disabled={isLoading}
-        />
-      )}
-
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Button onClick={togglePlayPause} variant="outline" size="icon" disabled={isLoading || duration === 0}>
-            {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-          </Button>
-          <div className="text-xs text-muted-foreground font-mono min-w-[70px] text-center tabular-nums bg-muted px-2 py-1 rounded">
-            {formatTime(currentTime, zoomLevel, displayedDuration)}
-          </div>
-        </div>
-
-        <div className="flex-grow flex items-center justify-center gap-2 max-w-xs">
-          <Button onClick={decreaseZoom} variant="outline" size="icon" disabled={isLoading || zoomLevel <= MIN_ZOOM}>
-            <Minus className="h-4 w-4" />
-          </Button>
-          <Slider
-            min={MIN_ZOOM}
-            max={20} // MAX_ZOOM is 20 (defined in useTimelineZoom)
-            step={0.1}
-            value={[zoomLevel]}
-            onValueChange={handleZoomSliderChange}
-            disabled={isLoading || duration === 0}
-            className="w-full"
-          />
-          <Button onClick={increaseZoom} variant="outline" size="icon" disabled={isLoading || zoomLevel >= 20}>
-            <Plus className="h-4 w-4" />
-          </Button>
-        </div>
-        
-        <div className="text-xs text-muted-foreground font-mono min-w-[70px] text-center tabular-nums bg-muted px-2 py-1 rounded">
-          {formatTime(duration, zoomLevel, displayedDuration)}
-        </div>
-      </div>
+      <TimelineControls
+        togglePlayPause={togglePlayPause}
+        isPlaying={isPlaying}
+        isLoading={isLoading}
+        duration={duration}
+        currentTime={currentTime}
+        zoomLevel={zoomLevel}
+        decreaseZoom={decreaseZoom}
+        increaseZoom={increaseZoom}
+        handleZoomSliderChange={handleZoomSliderChange}
+        displayedDuration={displayedDuration}
+      />
     </div>
   )
 }

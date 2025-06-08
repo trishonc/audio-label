@@ -6,7 +6,7 @@ import {
   renderBars,
   renderLabelMarkers,
   renderPlayhead,
-} from '../lib/waveform-drawing-utils';
+} from '../../lib/waveform-drawing-utils';
 
 interface WaveformCanvasProps {
   waveformData: number[];

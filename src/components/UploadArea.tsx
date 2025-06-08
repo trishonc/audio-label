@@ -1,10 +1,6 @@
-import React, { useRef, useState } from 'react'
+import React from 'react'
 import { Button } from "@/components/ui/button"
-
-const ACCEPTED_TYPES = [
-  'video/mp4', 'video/webm', 'video/ogg',
-  'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp3',
-]
+import { useFileUploader, ACCEPTED_VIDEO_TYPES } from '@/hooks/useFileUploader'
 
 interface UploadAreaProps {
   onFilesUploaded: (files: File[]) => void;
@@ -12,43 +8,19 @@ interface UploadAreaProps {
 }
 
 const UploadArea: React.FC<UploadAreaProps> = ({ onFilesUploaded, showDropzone }) => {
-  const [dragActive, setDragActive] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const {
+    fileInputRef,
+    handleAddFiles,
+    handleFileChange,
+    dragActive,
+    onDrag,
+    onDrop,
+    acceptedTypes,
+  } = useFileUploader({
+    onFilesUploaded,
+    acceptedTypes: ACCEPTED_VIDEO_TYPES,
+  });
 
-  const filterFiles = (fileList: FileList | null) => {
-    if (!fileList) return []
-    return Array.from(fileList).filter(f => ACCEPTED_TYPES.includes(f.type))
-  }
-
-  const handleFiles = (fileList: FileList | null) => {
-    const filtered = filterFiles(fileList)
-    if (filtered.length) {
-      onFilesUploaded(filtered)
-    }
-  }
-
-  const onDrag = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.type === 'dragenter' || e.type === 'dragover') setDragActive(true)
-    if (e.type === 'dragleave') setDragActive(false)
-  }
-
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
-    handleFiles(e.dataTransfer.files)
-  }
-
-  const onButtonClick = () => {
-    inputRef.current?.click()
-  }
-
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    handleFiles(e.target.files)
-    e.target.value = ''
-  }
 
   if (!showDropzone) {
     return null
@@ -64,14 +36,14 @@ const UploadArea: React.FC<UploadAreaProps> = ({ onFilesUploaded, showDropzone }
       style={{ zIndex: 10 }}
     >
       <input
-        ref={inputRef}
+        ref={fileInputRef}
         type="file"
         multiple
-        accept={ACCEPTED_TYPES.join(",")}
+        accept={acceptedTypes.join(",")}
         className="hidden"
-        onChange={onFileChange}
+        onChange={handleFileChange}
       />
-      <Button onClick={onButtonClick} variant="outline" size="lg">
+      <Button onClick={handleAddFiles} variant="outline" size="lg">
         Upload Files
       </Button>
       {dragActive && (
