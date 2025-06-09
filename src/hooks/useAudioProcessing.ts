@@ -58,8 +58,21 @@ export const useAudioProcessing = (): UseAudioProcessingReturn => {
         maxValue = Math.max(maxValue, rms);
       }
 
-      const normalizedWaveform = waveform.map(value => 
-        maxValue > 0 ? (value / maxValue) : 0
+      // Normalize and apply dynamic range enhancement
+      const enhancedWaveform = waveform.map(value => {
+        const normalized = maxValue > 0 ? (value / maxValue) : 0;
+        // Apply power curve to boost loud sounds and reduce quiet sounds
+        return Math.pow(normalized, 1.8);
+      });
+
+      // Use 95th percentile instead of max to avoid extreme peaks crushing detail
+      const sortedValues = [...enhancedWaveform].sort((a, b) => a - b);
+      const percentile95Index = Math.floor(sortedValues.length * 0.97);
+      const percentile95Value = sortedValues[percentile95Index];
+      
+      // Normalize against 95th percentile, but cap at 1.0
+      const normalizedWaveform = enhancedWaveform.map(value => 
+        percentile95Value > 0 ? Math.min(value / percentile95Value, 1.0) : 0
       );
 
       setWaveformData(normalizedWaveform);
