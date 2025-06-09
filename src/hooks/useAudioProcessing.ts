@@ -36,8 +36,8 @@ export const useAudioProcessing = (): UseAudioProcessingReturn => {
       const channelData = audioBuffer.getChannelData(0);
       // Dynamic sample count based on audio duration for optimal resolution
       // Base: 4000 samples, with additional samples for longer audio
-      const baseSamples = 4000;
-      const durationBonus = Math.floor(audioBuffer.duration / 10) * 500; // +500 samples per 10 seconds
+      const baseSamples = 500;
+      const durationBonus = Math.floor(audioBuffer.duration / 10) * 1000; // +500 samples per 10 seconds
       const samples = Math.min(baseSamples + durationBonus, 8000); // Cap at 8000 samples
       const blockSize = Math.floor(channelData.length / samples);
       const waveform: number[] = [];
