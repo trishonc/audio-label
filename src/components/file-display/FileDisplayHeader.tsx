@@ -118,8 +118,8 @@ export function FileDisplayHeader({
         </AlertDialog>
       </div>
       
-      <div className="flex items-center">
-        <span className="text-lg font-medium truncate" title={currentFileName}>
+      <div className="flex items-center justify-center flex-1 min-w-0 mx-4">
+        <span className="text-lg font-medium truncate max-w-full" title={currentFileName}>
           {currentFileName}
         </span>
       </div>
