@@ -3,7 +3,7 @@ import type { RefObject as ReactRefObjectType } from 'react';
 import { clampViewBoxStartTime } from '@/lib/utils';
 
 export const MIN_ZOOM = 1; // Minimum zoom level (1x = full view)
-const MAX_ZOOM = 20; // Maximum zoom level (e.g., 20x)
+const MAX_ZOOM = 50; // Maximum zoom level (e.g., 20x)
 const MOUSE_WHEEL_ZOOM_SENSITIVITY = 0.1; // How much zoom changes per wheel tick
 
 interface UseTimelineZoomProps {
