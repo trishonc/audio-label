@@ -132,7 +132,7 @@ export function FileDisplayHeader({
           variant="outline" 
           size="sm" 
           onClick={onPrevious}
-          disabled={activeIndex === 0}
+          disabled={filesLength === 0}
         >
           <ChevronLeft className="size-4" />
         </Button>
@@ -140,7 +140,7 @@ export function FileDisplayHeader({
           variant="outline" 
           size="sm" 
           onClick={onNext}
-          disabled={activeIndex === filesLength - 1}
+          disabled={filesLength === 0}
         >
           <ChevronRight className="size-4" />
         </Button>
