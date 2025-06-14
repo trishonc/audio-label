@@ -16,11 +16,11 @@ export function ClipInfoSection({
   const labels = useSessionStore(state => state.labels);
   
   return (
-    <div className="flex flex-col gap-2 flex-1">
-      <div className="flex justify-between text-sm items-center">
+    <div className="flex flex-col gap-2 h-full">
+      <div className="flex justify-between text-sm items-center flex-shrink-0">
         <h3 className="text-lg font-medium">Labels ({labels.length})</h3>
        </div>
-      <ScrollArea className="flex-1 rounded-md border p-3 bg-background h-full">
+      <ScrollArea className="flex-1 rounded-md border p-3 bg-background min-h-0">
         {labels.length > 0 ? (
           <div className="space-y-1">
             {labels.map((label) => (
