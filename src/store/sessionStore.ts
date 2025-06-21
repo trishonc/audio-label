@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { db, getLabelsForFile, addLabelToDB, deleteLabelFromDB, addFilesToDB, deleteFileFromDB, resetAllData, addTagToFile, removeTagFromFile, getFileById, type StoredFile, type StoredLabel } from '@/lib/db';
+import { importLabelsFromCSV, loadCSVFile, type ImportResult } from '@/lib/csvImport';
 
 interface SessionState {
   files: StoredFile[];
@@ -20,6 +21,7 @@ interface SessionState {
   
   removeFile: (fileId: number) => Promise<void>;
   resetAllData: () => Promise<void>;
+  importLabelsFromCSV: () => Promise<ImportResult>;
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
@@ -142,6 +144,33 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       set({ files: [], activeFileId: null, labels: [], currentFileTags: [], isLoading: false });
     } catch (error) {
       console.error('Failed to reset all data:', error);
+      throw error;
+    }
+  },
+
+  importLabelsFromCSV: async () => {
+    try {
+      const csvContent = await loadCSVFile();
+      const result = await importLabelsFromCSV(csvContent);
+      
+      // Force refresh all data to show imported labels immediately
+      const { activeFileId } = get();
+      
+      // Reload files (this will update file tags)
+      await get().loadFilesFromDB();
+      
+      // Force refresh labels for the current active file
+      if (activeFileId) {
+        const [labels, file] = await Promise.all([
+          getLabelsForFile(activeFileId),
+          getFileById(activeFileId)
+        ]);
+        set({ labels, currentFileTags: file?.tags || [] });
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Failed to import CSV:', error);
       throw error;
     }
   },

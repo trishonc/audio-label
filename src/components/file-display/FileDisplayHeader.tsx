@@ -10,7 +10,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ChevronLeft, ChevronRight, Plus, Download, RotateCcw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Download, RotateCcw, Upload } from "lucide-react";
 import { useSessionStore } from "@/store/sessionStore";
 import { getAllLabelsFromDB } from "@/lib/db";
 import { exportAllLabelsToCSV } from "@/lib/csvExport";
@@ -34,9 +34,11 @@ export function FileDisplayHeader({
   onNext
 }: FileDisplayHeaderProps) {
   const resetAllData = useSessionStore(state => state.resetAllData);
+  const importLabelsFromCSV = useSessionStore(state => state.importLabelsFromCSV);
   const labels = useSessionStore(state => state.labels);
   const [totalLabelsAllClips, setTotalLabelsAllClips] = useState(0);
   const [isResetting, setIsResetting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
   useEffect(() => {
     const loadTotalLabelsCount = async () => {
@@ -63,6 +65,31 @@ export function FileDisplayHeader({
     }
   };
 
+  const handleImportData = async () => {
+    setIsImporting(true);
+    try {
+      const result = await importLabelsFromCSV();
+      
+      // Log import results to console for debugging
+      console.log('Import completed:', {
+        processedRows: result.processedRows,
+        addedLabels: result.addedLabels,
+        addedTags: result.addedTags,
+        skippedFiles: result.skippedFiles,
+        errors: result.errors
+      });
+      
+      // Manually refresh the total labels count
+      const allLabels = await getAllLabelsFromDB();
+      setTotalLabelsAllClips(allLabels.length);
+      
+    } catch (error) {
+      console.error('Failed to import data:', error);
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   return (
     <div className="flex items-center justify-between p-4">
       <div className="flex items-center gap-2">
@@ -85,6 +112,17 @@ export function FileDisplayHeader({
         >
           <Download className="size-4" />
           Export ({totalLabelsAllClips})
+        </Button>
+
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleImportData}
+          disabled={isImporting}
+          title="Load data from CSV"
+        >
+          <Upload className="size-4" />
+          {isImporting ? "Loading..." : "Load Data"}
         </Button>
 
         <AlertDialog>
