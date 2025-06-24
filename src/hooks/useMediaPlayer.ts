@@ -28,7 +28,6 @@ export function useMediaPlayer({ files, activeIndex, onVideoElementChange }: use
 
     const halfWindow = windowMs / 2;
     const startTime = Math.max(0, timestamp - halfWindow / 1000); // Convert to seconds
-    const endTime = timestamp + halfWindow / 1000; // Convert to seconds
 
     // Create a temporary audio element for playback
     const tempAudio = new Audio(currentUrl);
