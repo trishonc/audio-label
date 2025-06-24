@@ -22,6 +22,36 @@ export function useMediaPlayer({ files, activeIndex, onVideoElementChange }: use
     setAudioScrubFunction(() => scrubFunction);
   }, []);
 
+  // Function to play audio segment without affecting main timeline
+  const playAudioSegment = useCallback(async (timestamp: number, windowMs: number = 150) => {
+    if (!currentUrl) return;
+
+    const halfWindow = windowMs / 2;
+    const startTime = Math.max(0, timestamp - halfWindow / 1000); // Convert to seconds
+    const endTime = timestamp + halfWindow / 1000; // Convert to seconds
+
+    // Create a temporary audio element for playback
+    const tempAudio = new Audio(currentUrl);
+    tempAudio.currentTime = startTime;
+    
+    const playPromise = tempAudio.play();
+    
+    // Handle the promise properly
+    if (playPromise) {
+      try {
+        await playPromise;
+        
+        // Stop playback after the window duration
+        setTimeout(() => {
+          tempAudio.pause();
+          tempAudio.currentTime = 0;
+        }, windowMs);
+      } catch (error) {
+        console.error('Error playing audio segment:', error);
+      }
+    }
+  }, [currentUrl]);
+
   useEffect(() => {
     const activeFile = files[activeIndex];
     if (!activeFile) {
@@ -43,5 +73,6 @@ export function useMediaPlayer({ files, activeIndex, onVideoElementChange }: use
     audioScrubFunction,
     videoRef,
     handleAudioScrubReady,
+    playAudioSegment,
   };
 } 

@@ -9,6 +9,7 @@ import { useSessionStore } from '@/store/sessionStore'; // Import the new sessio
 
 function App() {
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  const [playAudioSegment, setPlayAudioSegment] = useState<((timestamp: number) => void) | null>(null);
 
   const {
     files,
@@ -46,6 +47,10 @@ function App() {
     }
   };
 
+  const handlePlayAudioSegment = (playFunction: (timestamp: number) => void) => {
+    setPlayAudioSegment(() => playFunction);
+  };
+
   const activeIndex = activeFileId ? files.findIndex(f => f.id === activeFileId) : -1;
   const currentFile = activeIndex !== -1 ? files[activeIndex] : null;
 
@@ -75,6 +80,7 @@ function App() {
                 onCreateLabel={createLabelAtCurrentTimestamp}
                 onNavigateToLabel={navigateToLabel}
                 onFilesUploaded={handleFilesUploaded}
+                onPlayAudioSegment={handlePlayAudioSegment}
               />
             )}
           </div>
@@ -84,6 +90,7 @@ function App() {
                 currentClipName={currentFile ? currentFile.name : "No file selected"}
                 onDeleteLabel={removeLabel}
                 onNavigateToLabel={navigateToLabel}
+                onPlayAudioSegment={playAudioSegment}
               />
             </div>
           )}

@@ -15,6 +15,7 @@ interface FileDisplayAreaProps {
   onCreateLabel?: () => void;
   onNavigateToLabel: (timestamp: number) => void;
   onFilesUploaded?: (files: File[]) => void;
+  onPlayAudioSegment?: (playFunction: (timestamp: number) => void) => void;
 }
 
 const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({ 
@@ -24,7 +25,8 @@ const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({
   onVideoElementChange,
   onCreateLabel,
   onNavigateToLabel,
-  onFilesUploaded
+  onFilesUploaded,
+  onPlayAudioSegment
 }) => {
   const { 
     fileInputRef, 
@@ -38,7 +40,8 @@ const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({
     videoElement, 
     audioScrubFunction, 
     videoRef, 
-    handleAudioScrubReady 
+    handleAudioScrubReady,
+    playAudioSegment
   } = useMediaPlayer({ files, activeIndex, onVideoElementChange });
   
   useKeyboardShortcuts({ videoElement, onCreateLabel, onNavigateToLabel, audioScrubFunction });
@@ -48,6 +51,13 @@ const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({
     filesLength: files.length, 
     onIndexChange 
   });
+
+  // Pass the playAudioSegment function up to parent
+  React.useEffect(() => {
+    if (onPlayAudioSegment) {
+      onPlayAudioSegment(playAudioSegment);
+    }
+  }, [playAudioSegment, onPlayAudioSegment]);
 
   if (files.length === 0) {
     return null;

@@ -2,16 +2,18 @@ import { useSessionStore } from "@/store/sessionStore";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { formatTimestamp } from "@/lib/utils";
-import { XCircle } from "lucide-react";
+import { XCircle, Play } from "lucide-react";
 
 interface ClipInfoSectionProps {
   onNavigateToLabel: (timestamp: number) => void;
   onDeleteLabel: (id: string) => void;
+  onPlayAudioSegment?: ((timestamp: number) => void) | null;
 }
 
 export function ClipInfoSection({ 
   onNavigateToLabel, 
-  onDeleteLabel 
+  onDeleteLabel,
+  onPlayAudioSegment
 }: ClipInfoSectionProps) {
   const labels = useSessionStore(state => state.labels);
   
@@ -26,22 +28,38 @@ export function ClipInfoSection({
             {labels.map((label) => (
               <div key={label.id}>
                 <div
-                  className="w-full justify-between h-auto p-2 group border rounded-md cursor-pointer hover:bg-accent hover:text-accent-foreground flex items-center"
+                  className="w-full justify-between h-auto p-2 group border rounded-md cursor-pointer flex items-center"
                   onClick={() => onNavigateToLabel(label.timestamp)}
                 >
                   <span>{formatTimestamp(label.timestamp)}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-5 w-5"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeleteLabel(label.id);
-                    }}
-                    title="Remove label"
-                  >
-                    <XCircle className="size-4 text-muted-foreground hover:text-destructive" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {onPlayAudioSegment && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 hover:bg-primary/10 hover:scale-110 transition-all duration-200"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onPlayAudioSegment(label.timestamp);
+                        }}
+                        title="Play audio segment (150ms)"
+                      >
+                        <Play className="size-3 text-muted-foreground hover:text-primary transition-colors" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 hover:bg-destructive/10 hover:scale-110 transition-all duration-200"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteLabel(label.id);
+                      }}
+                      title="Remove label"
+                    >
+                      <XCircle className="size-4 text-muted-foreground hover:text-destructive transition-colors" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}

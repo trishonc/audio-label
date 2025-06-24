@@ -6,12 +6,14 @@ interface FileSidebarProps {
   currentClipName: string;
   onDeleteLabel: (id: string) => void;
   onNavigateToLabel: (timestamp: number) => void;
+  onPlayAudioSegment?: ((timestamp: number) => void) | null;
 }
 
 export function FileSidebar({ 
   currentClipName,
   onDeleteLabel,
-  onNavigateToLabel
+  onNavigateToLabel,
+  onPlayAudioSegment
 }: FileSidebarProps) {
 
   return (
@@ -20,6 +22,7 @@ export function FileSidebar({
         <ClipInfoSection 
           onNavigateToLabel={onNavigateToLabel}
           onDeleteLabel={onDeleteLabel}
+          onPlayAudioSegment={onPlayAudioSegment}
         />
       </div>
 
