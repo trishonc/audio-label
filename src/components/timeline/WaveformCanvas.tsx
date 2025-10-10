@@ -79,18 +79,11 @@ const WaveformCanvas = forwardRef<HTMLCanvasElement, WaveformCanvasProps>((
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Use the same enhanced DPR as in updateCanvasSize
-    const dpr = Math.min(window.devicePixelRatio * 1.5, 3);
-    const { width: canvasWidth, height: canvasHeight } = canvas; // These are pixel dimensions (scaled by DPR)
-    
-    // Enable high-quality rendering
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    
-    // This is the canvas height in CSS pixels, which acts as the context for bar height calculation.
-    const cssCanvasHeight = canvasHeight / dpr; 
+    const rect = canvas.getBoundingClientRect();
+    const cssWidth = rect.width;
+    const cssHeight = rect.height;
 
-    renderBackground(ctx, canvasWidth, canvasHeight, themeColors.backgroundColor);
+    renderBackground(ctx, cssWidth, cssHeight, themeColors.backgroundColor);
 
     if ((waveformData.length === 0 && !isLoading) || duration === 0) return;
 
@@ -105,16 +98,14 @@ const WaveformCanvas = forwardRef<HTMLCanvasElement, WaveformCanvasProps>((
     renderBars(
       ctx,
       visibleSegment,
-      canvasWidth,
-      canvasHeight,
-      cssCanvasHeight, // Pass the CSS height of the canvas as the context for bar scaling
+      cssWidth,
+      cssHeight,
       waveformData.length,
       duration,
       currentTime,
       themeColors.primaryColor,
       themeColors.mutedForegroundColor,
-      startIndex,
-      dpr
+      startIndex
     );
 
     renderLabelMarkers(
@@ -122,10 +113,9 @@ const WaveformCanvas = forwardRef<HTMLCanvasElement, WaveformCanvasProps>((
       labels,
       viewBoxStartTime,
       displayedDuration,
-      canvasWidth,
-      canvasHeight,
-      '#22c55e', // Green color for markers (Tailwind green-500)
-      dpr
+      cssWidth,
+      cssHeight,
+      '#22c55e' // Green color for markers (Tailwind green-500)
     );
 
     renderPlayhead(
@@ -133,10 +123,9 @@ const WaveformCanvas = forwardRef<HTMLCanvasElement, WaveformCanvasProps>((
       currentTime,
       viewBoxStartTime,
       displayedDuration,
-      canvasWidth,
-      canvasHeight,
-      themeColors.destructiveColor,
-      dpr
+      cssWidth,
+      cssHeight,
+      themeColors.destructiveColor
     );
   }, [
     waveformData, 
@@ -146,41 +135,37 @@ const WaveformCanvas = forwardRef<HTMLCanvasElement, WaveformCanvasProps>((
     ref, 
     zoomLevel, 
     viewBoxStartTime, 
-    labels, // Add labels to dependency array
+    labels,
     themeColors
   ]);
 
-  const updateCanvasSize = useCallback(() => {
+  useEffect(() => {
     const canvas = ref && typeof ref !== 'function' ? ref.current : null;
     const container = containerRef.current;
     if (!canvas || !container) return;
 
-    const rect = container.getBoundingClientRect();
-    // Use higher DPR for smoother rendering, up to 3x for better quality
-    const dpr = Math.min(window.devicePixelRatio * 1.5, 3);
-    
-    canvas.width = rect.width * dpr;
-    canvas.height = height * dpr;
-    canvas.style.width = `${rect.width}px`;
-    canvas.style.height = `${height}px`;
-    
-    // Enable better canvas rendering
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-    }
-    
-    drawWaveform();
-  }, [drawWaveform, height, ref]);
+    const resizeObserver = new ResizeObserver(() => {
+      const rect = container.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
 
-  useEffect(() => {
-    updateCanvasSize();
-    window.addEventListener('resize', updateCanvasSize);
-    return () => {
-      window.removeEventListener('resize', updateCanvasSize);
-    };
-  }, [updateCanvasSize]);
+      canvas.width = rect.width * dpr;
+      canvas.height = height * dpr;
+      canvas.style.width = `${rect.width}px`;
+      canvas.style.height = `${height}px`;
+
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.scale(dpr, dpr);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        drawWaveform();
+      }
+    });
+
+    resizeObserver.observe(container);
+    
+    return () => resizeObserver.disconnect();
+  }, [drawWaveform, height, ref]);
 
   useEffect(() => {
     drawWaveform();
