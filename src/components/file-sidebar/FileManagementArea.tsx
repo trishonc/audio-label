@@ -16,9 +16,10 @@ import { useState } from "react";
 
 interface FileManagementSectionProps {
   currentClipName: string;
+  hasFiles: boolean;
 }
 
-export function FileManagementSection({ currentClipName }: FileManagementSectionProps) {
+export function FileManagementSection({ currentClipName, hasFiles }: FileManagementSectionProps) {
   const activeFileId = useSessionStore(state => state.activeFileId);
   const removeFile = useSessionStore(state => state.removeFile);
   const [isRemoving, setIsRemoving] = useState(false);
@@ -45,7 +46,7 @@ export function FileManagementSection({ currentClipName }: FileManagementSection
           <Button 
             variant="destructive" 
             className="w-full"
-            disabled={!activeFileId || isRemoving}
+            disabled={!hasFiles || !activeFileId || isRemoving}
           >
             <Trash2 className="h-4 w-4" />
             {isRemoving ? "Removing..." : "Remove This File"}

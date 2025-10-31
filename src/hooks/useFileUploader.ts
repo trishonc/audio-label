@@ -37,6 +37,7 @@ export function useFileUploader({ onFilesUploaded, acceptedTypes = ACCEPTED_VIDE
   const onDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    // Keep drag active state for functionality but don't use it for visual indicators
     if (e.type === 'dragenter' || e.type === 'dragover') {
       setDragActive(true);
     } else if (e.type === 'dragleave') {

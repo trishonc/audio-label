@@ -1,11 +1,13 @@
 import React from 'react';
 import Player from '@/components/file-display/Player';
 import Timeline from '@/components/Timeline';
-import { useFileUploader } from '@/hooks/useFileUploader';
+import { useFileUploader, ACCEPTED_VIDEO_TYPES } from '@/hooks/useFileUploader';
 import { useMediaPlayer } from '@/hooks/useMediaPlayer';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useFileNavigation } from '@/hooks/useFileNavigation';
 import { FileDisplayHeader } from './file-display/FileDisplayHeader';
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
 interface FileDisplayAreaProps {
   files: File[];
@@ -32,8 +34,13 @@ const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({
     fileInputRef, 
     handleAddFiles, 
     handleFileChange, 
-    acceptedTypes 
-  } = useFileUploader({ onFilesUploaded });
+    acceptedTypes,
+    onDrag,
+    onDrop
+  } = useFileUploader({ 
+    onFilesUploaded,
+    acceptedTypes: ACCEPTED_VIDEO_TYPES
+  });
   
   const { 
     currentUrl, 
@@ -59,14 +66,17 @@ const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({
     }
   }, [playAudioSegment, onPlayAudioSegment]);
 
-  if (files.length === 0) {
-    return null;
-  }
-
-  const currentFile = files[activeIndex];
+  const currentFile = files.length > 0 && activeIndex !== -1 ? files[activeIndex] : null;
+  const hasFiles = files.length > 0 && activeIndex !== -1;
 
   return (
-    <div className="h-full flex flex-col">
+    <div 
+      className="h-full flex flex-col"
+      onDragEnter={onDrag}
+      onDragOver={onDrag}
+      onDragLeave={onDrag}
+      onDrop={onDrop}
+    >
       <input
         ref={fileInputRef}
         type="file"
@@ -76,7 +86,7 @@ const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({
         onChange={handleFileChange}
       />
       <FileDisplayHeader
-        activeIndex={activeIndex}
+        activeIndex={activeIndex !== -1 ? activeIndex : 0}
         filesLength={files.length}
         currentFileName={currentFile?.name}
         onAddFiles={handleAddFiles}
@@ -86,20 +96,39 @@ const FileDisplayArea: React.FC<FileDisplayAreaProps> = ({
       
       <div className="flex-1 min-h-0 flex flex-col gap-4 p-4">
         <div className="flex-1 min-h-0">
-          <Player 
-            file={currentFile} 
-            url={currentUrl} 
-            videoRef={videoRef}
-          />
+          {hasFiles && currentFile ? (
+            <Player 
+              file={currentFile} 
+              url={currentUrl} 
+              videoRef={videoRef}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center gap-4 h-full">
+              <Button
+                onClick={handleAddFiles}
+                size="lg"
+                variant="default"
+                className="gap-2"
+              >
+                <Plus className="size-5" />
+                Add Files
+              </Button>
+              <p className="text-sm text-muted-foreground">
+                Upload audio or video files to get started
+              </p>
+            </div>
+          )}
         </div>
-        <div>
-          <Timeline
-            url={currentUrl} 
-            videoElement={videoElement}
-            onAudioScrubReady={handleAudioScrubReady}
-            onCreateLabel={onCreateLabel}
-          />
-        </div>
+        {hasFiles && (
+          <div>
+            <Timeline
+              url={currentUrl} 
+              videoElement={videoElement}
+              onAudioScrubReady={handleAudioScrubReady}
+              onCreateLabel={onCreateLabel}
+            />
+          </div>
+        )}
       </div>
     </div>
   )

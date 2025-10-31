@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { ThemeProvider } from "@/components/ThemeProvider"
 import { Header } from "@/components/Header"
-import UploadArea from '@/components/UploadArea'
 import FileDisplayArea from '@/components/FileDisplayArea'
 import { FileSidebar } from "@/components/FileSidebar"
 import { useLabels } from '@/hooks/useLabels';
@@ -70,30 +69,26 @@ function App() {
         <Header />
         <main className="flex flex-1 min-h-0">
           <div className="w-3/4 flex flex-col min-h-0">
-            <UploadArea onFilesUploaded={handleFilesUploaded} showDropzone={files.length === 0} />
-            {files.length > 0 && activeIndex !== -1 && currentFile && (
-              <FileDisplayArea
-                files={fileObjects}
-                activeIndex={activeIndex}
-                onIndexChange={handleIndexChange}
-                onVideoElementChange={setVideoElement}
-                onCreateLabel={createLabelAtCurrentTimestamp}
-                onNavigateToLabel={navigateToLabel}
-                onFilesUploaded={handleFilesUploaded}
-                onPlayAudioSegment={handlePlayAudioSegment}
-              />
-            )}
+            <FileDisplayArea
+              files={fileObjects}
+              activeIndex={activeIndex}
+              onIndexChange={handleIndexChange}
+              onVideoElementChange={setVideoElement}
+              onCreateLabel={createLabelAtCurrentTimestamp}
+              onNavigateToLabel={navigateToLabel}
+              onFilesUploaded={handleFilesUploaded}
+              onPlayAudioSegment={handlePlayAudioSegment}
+            />
           </div>
-          {files.length > 0 && (
-            <div className="w-1/4 min-h-0">
-              <FileSidebar
-                currentClipName={currentFile ? currentFile.name : "No file selected"}
-                onDeleteLabel={removeLabel}
-                onNavigateToLabel={navigateToLabel}
-                onPlayAudioSegment={playAudioSegment}
-              />
-            </div>
-          )}
+          <div className="w-1/4 min-h-0">
+            <FileSidebar
+              currentClipName={currentFile ? currentFile.name : "No file selected"}
+              onDeleteLabel={removeLabel}
+              onNavigateToLabel={navigateToLabel}
+              onPlayAudioSegment={playAudioSegment}
+              hasFiles={files.length > 0}
+            />
+          </div>
         </main>
       </div>
     </ThemeProvider>

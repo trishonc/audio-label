@@ -8,12 +8,14 @@ interface ClipInfoSectionProps {
   onNavigateToLabel: (timestamp: number) => void;
   onDeleteLabel: (id: string) => void;
   onPlayAudioSegment?: ((timestamp: number) => void) | null;
+  hasFiles: boolean;
 }
 
 export function ClipInfoSection({ 
   onNavigateToLabel, 
   onDeleteLabel,
-  onPlayAudioSegment
+  onPlayAudioSegment,
+  hasFiles
 }: ClipInfoSectionProps) {
   const labels = useSessionStore(state => state.labels);
   
@@ -23,7 +25,9 @@ export function ClipInfoSection({
         <h3 className="text-lg font-medium">Labels ({labels.length})</h3>
        </div>
       <ScrollArea className="flex-1 rounded-md border p-3 bg-background min-h-0">
-        {labels.length > 0 ? (
+        {!hasFiles ? (
+          <p className="text-sm text-muted-foreground text-center py-4">Add files to start labeling</p>
+        ) : labels.length > 0 ? (
           <div className="space-y-1">
             {labels.map((label) => (
               <div key={label.id}>

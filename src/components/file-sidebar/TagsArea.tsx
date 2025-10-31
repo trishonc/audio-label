@@ -5,7 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
 
-export function TagsSection() {
+interface TagsSectionProps {
+  hasFiles: boolean;
+}
+
+export function TagsSection({ hasFiles }: TagsSectionProps) {
   const currentFileTags = useSessionStore(state => state.currentFileTags);
   const activeFileId = useSessionStore(state => state.activeFileId);
   const addTag = useSessionStore(state => state.addTag);
@@ -46,11 +50,11 @@ export function TagsSection() {
       <h3 className="text-lg font-medium">Tags</h3>
       <div className="flex gap-2">
         <Input
-          placeholder="Add tag..."
+          placeholder={hasFiles ? "Add tag..." : "Add files to use tags"}
           value={tagInput}
           onChange={(e) => setTagInput(e.target.value)}
           onKeyDown={handleTagKeyPress}
-          disabled={!activeFileId}
+          disabled={!hasFiles || !activeFileId}
           className="flex-1 h-8"
           size={undefined}
         />
@@ -58,11 +62,14 @@ export function TagsSection() {
           variant="outline"
           size="sm"
           onClick={handleAddTag}
-          disabled={!activeFileId || !tagInput.trim() || currentFileTags.includes(tagInput.trim())}
+          disabled={!hasFiles || !activeFileId || !tagInput.trim() || currentFileTags.includes(tagInput.trim())}
         >
           Add
         </Button>
       </div>
+      {hasFiles && currentFileTags.length === 0 && (
+        <p className="text-sm text-muted-foreground">No tags yet</p>
+      )}
       <div className="flex flex-wrap gap-1">
         {currentFileTags.map((tag) => (
           <Badge

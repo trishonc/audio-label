@@ -163,9 +163,11 @@ export function FileDisplayHeader({
       </div>
       
       <div className="flex items-center gap-2">
-        <span className="text-sm font-medium">
-          {activeIndex + 1}/{filesLength}
-        </span>
+        {filesLength > 0 && (
+          <span className="text-sm font-medium">
+            {activeIndex + 1}/{filesLength}
+          </span>
+        )}
         <Button 
           variant="outline" 
           size="sm" 

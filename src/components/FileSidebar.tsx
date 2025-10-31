@@ -7,13 +7,15 @@ interface FileSidebarProps {
   onDeleteLabel: (id: string) => void;
   onNavigateToLabel: (timestamp: number) => void;
   onPlayAudioSegment?: ((timestamp: number) => void) | null;
+  hasFiles: boolean;
 }
 
 export function FileSidebar({ 
   currentClipName,
   onDeleteLabel,
   onNavigateToLabel,
-  onPlayAudioSegment
+  onPlayAudioSegment,
+  hasFiles
 }: FileSidebarProps) {
 
   return (
@@ -23,15 +25,16 @@ export function FileSidebar({
           onNavigateToLabel={onNavigateToLabel}
           onDeleteLabel={onDeleteLabel}
           onPlayAudioSegment={onPlayAudioSegment}
+          hasFiles={hasFiles}
         />
       </div>
 
       <div className="mt-4 flex-shrink-0">
-        <TagsSection />
+        <TagsSection hasFiles={hasFiles} />
       </div>
 
       <div className="mt-4 flex-shrink-0">
-        <FileManagementSection currentClipName={currentClipName} />
+        <FileManagementSection currentClipName={currentClipName} hasFiles={hasFiles} />
       </div>
     </div>
   );
