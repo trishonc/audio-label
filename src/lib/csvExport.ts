@@ -13,7 +13,7 @@ const formatTimestamp = (timestamp: number): string => {
 };
 
 const generateCSVContent = (data: LabelData[]): string => {
-  const headers = ['File Name', 'Timestamp', 'Tags'];
+  const headers = ['filename', 'timestamp', 'tags'];
   const rows = data.map(item => [
     `"${item.fileName.replace(/"/g, '""')}"`, // Escape quotes in filenames
     formatTimestamp(item.timestamp),
