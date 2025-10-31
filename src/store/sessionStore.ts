@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { db, getLabelsForFile, addLabelToDB, deleteLabelFromDB, addFilesToDB, deleteFileFromDB, resetAllData, addTagToFile, removeTagFromFile, getFileById, type StoredFile, type StoredLabel } from '@/lib/db';
-import { importLabelsFromCSV, loadCSVFile, type ImportResult } from '@/lib/csvImport';
+import { importLabelsFromCSV, type ImportResult } from '@/lib/csvImport';
 
 interface SessionState {
   files: StoredFile[];
@@ -21,7 +21,7 @@ interface SessionState {
   
   removeFile: (fileId: number) => Promise<void>;
   resetAllData: () => Promise<void>;
-  importLabelsFromCSV: () => Promise<ImportResult>;
+  importLabelsFromCSV: (csvContent: string) => Promise<ImportResult>;
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
@@ -148,9 +148,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
   },
 
-  importLabelsFromCSV: async () => {
+  importLabelsFromCSV: async (csvContent: string) => {
     try {
-      const csvContent = await loadCSVFile();
       const result = await importLabelsFromCSV(csvContent);
       
       // Force refresh all data to show imported labels immediately

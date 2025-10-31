@@ -14,6 +14,7 @@ import { ChevronLeft, ChevronRight, Plus, Download, RotateCcw, Upload } from "lu
 import { useSessionStore } from "@/store/sessionStore";
 import { getAllLabelsFromDB } from "@/lib/db";
 import { exportAllLabelsToCSV } from "@/lib/csvExport";
+import { loadCSVFile } from "@/lib/csvImport";
 import { useEffect, useState } from "react";
 
 interface FileDisplayHeaderProps {
@@ -66,9 +67,11 @@ export function FileDisplayHeader({
   };
 
   const handleImportData = async () => {
-    setIsImporting(true);
     try {
-      const result = await importLabelsFromCSV();
+      const csvContent = await loadCSVFile();
+      
+      setIsImporting(true);
+      const result = await importLabelsFromCSV(csvContent);
       
       // Log import results to console for debugging
       console.log('Import completed:', {
@@ -84,7 +87,9 @@ export function FileDisplayHeader({
       setTotalLabelsAllClips(allLabels.length);
       
     } catch (error) {
-      console.error('Failed to import data:', error);
+      if (error instanceof Error && error.message !== 'No file selected') {
+        console.error('Failed to import data:', error);
+      }
     } finally {
       setIsImporting(false);
     }
